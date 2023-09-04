@@ -39,6 +39,8 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Deref;
 
+pub mod tlsa;
+
 /// A DER-encoded X.509 private key, in one of several formats
 ///
 /// See variant inner types for more detailed information.
