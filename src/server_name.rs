@@ -6,8 +6,6 @@ use core::hash::{Hash, Hasher};
 use core::{fmt, str};
 #[cfg(feature = "std")]
 use std::error::Error as StdError;
-#[cfg(feature = "std")]
-use std::net::IpAddr;
 
 /// Encodes ways a client can know the expected name of the server.
 ///
@@ -39,7 +37,6 @@ pub enum ServerName<'a> {
 
     /// The server is identified by an IP address. SNI is not
     /// done.
-    #[cfg(feature = "std")]
     IpAddress(IpAddr),
 }
 
@@ -58,7 +55,6 @@ impl<'a> fmt::Debug for ServerName<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::DnsName(d) => f.debug_tuple("DnsName").field(&d.as_ref()).finish(),
-            #[cfg(feature = "std")]
             Self::IpAddress(i) => f.debug_tuple("IpAddress").field(i).finish(),
         }
     }
@@ -82,7 +78,7 @@ impl<'a> TryFrom<&'a str> for ServerName<'a> {
         match DnsName::try_from(s) {
             Ok(dns) => Ok(Self::DnsName(dns)),
             #[cfg(feature = "std")]
-            Err(InvalidDnsNameError) => match s.parse() {
+            Err(InvalidDnsNameError) => match IpAddr::try_from(s) {
                 Ok(ip) => Ok(Self::IpAddress(ip)),
                 Err(_) => Err(InvalidDnsNameError),
             },
@@ -220,6 +216,15 @@ impl fmt::Display for InvalidDnsNameError {
 impl StdError for InvalidDnsNameError {}
 
 fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
+    enum State {
+        Start,
+        Next,
+        NumericOnly { len: usize },
+        NextAfterNumericOnly,
+        Subsequent { len: usize },
+        Hyphen { len: usize },
+    }
+
     use State::*;
     let mut state = Start;
 
@@ -271,14 +276,276 @@ fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     Ok(())
 }
 
-enum State {
-    Start,
-    Next,
-    NumericOnly { len: usize },
-    NextAfterNumericOnly,
-    Subsequent { len: usize },
-    Hyphen { len: usize },
+/// `no_std` implementation of `std::net::IpAddr`.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum IpAddr {
+    /// An Ipv4 address.
+    V4(Ipv4Addr),
+    /// An Ipv6 address.
+    V6(Ipv6Addr),
 }
+
+impl TryFrom<&str> for IpAddr {
+    type Error = AddrParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match Ipv4Addr::try_from(value) {
+            Ok(v4) => Ok(Self::V4(v4)),
+            Err(_) => match Ipv6Addr::try_from(value) {
+                Ok(v6) => Ok(Self::V6(v6)),
+                Err(e) => Err(e),
+            },
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::IpAddr> for IpAddr {
+    fn from(addr: std::net::IpAddr) -> Self {
+        match addr {
+            std::net::IpAddr::V4(v4) => Self::V4(v4.into()),
+            std::net::IpAddr::V6(v6) => Self::V6(v6.into()),
+        }
+    }
+}
+
+/// `no_std` implementation of `std::net::Ipv4Addr`.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Ipv4Addr([u8; 4]);
+
+impl TryFrom<&str> for Ipv4Addr {
+    type Error = AddrParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut is_first_byte = true;
+        let mut current_octet: [u8; 3] = [0, 0, 0];
+        let mut current_size = 0;
+        let mut dot_count = 0;
+
+        let mut octet = 0;
+        let mut octets: [u8; 4] = [0, 0, 0, 0];
+
+        // Returns a u32 so it's possible to identify (and error) when
+        // provided textual octets > 255, not representable by u8.
+        fn radix10_to_octet(textual_octets: &[u8]) -> u32 {
+            let mut result: u32 = 0;
+            for digit in textual_octets.iter() {
+                result *= 10;
+                result += u32::from(*digit);
+            }
+            result
+        }
+
+        for (i, &b) in value.as_bytes().iter().enumerate() {
+            match b {
+                b'.' => {
+                    if is_first_byte {
+                        // IPv4 address cannot start with a dot.
+                        return Err(AddrParseError);
+                    }
+                    if i == value.len() - 1 {
+                        // IPv4 address cannot end with a dot.
+                        return Err(AddrParseError);
+                    }
+                    if dot_count == 3 {
+                        // IPv4 address cannot have more than three dots.
+                        return Err(AddrParseError);
+                    }
+                    dot_count += 1;
+                    if current_size == 0 {
+                        // IPv4 address cannot contain two dots in a row.
+                        return Err(AddrParseError);
+                    }
+                    let current_raw_octet = radix10_to_octet(&current_octet[..current_size]);
+                    if current_raw_octet > 255 {
+                        // No octet can be greater than 255.
+                        return Err(AddrParseError);
+                    }
+                    octets[octet] =
+                        TryInto::<u8>::try_into(current_raw_octet).expect("invalid character");
+                    octet += 1;
+                    // We move on to the next textual octet.
+                    current_octet = [0, 0, 0];
+                    current_size = 0;
+                }
+                number @ b'0'..=b'9' => {
+                    if number == b'0'
+                        && current_size == 0
+                        && value.as_bytes().get(i + 1) != Some(&b'.')
+                        && i != value.len() - 1
+                    {
+                        // No octet can start with 0 if a dot does not follow and if we are not at the end.
+                        return Err(AddrParseError);
+                    }
+                    if current_size >= current_octet.len() {
+                        // More than 3 octets in a triple
+                        return Err(AddrParseError);
+                    }
+                    current_octet[current_size] = number - b'0';
+                    current_size += 1;
+                }
+                _ => {
+                    return Err(AddrParseError);
+                }
+            }
+
+            is_first_byte = false;
+        }
+
+        let last_octet = radix10_to_octet(&current_octet[..current_size]);
+        if current_size > 0 && last_octet > 255 {
+            // No octet can be greater than 255.
+            return Err(AddrParseError);
+        }
+        octets[octet] = TryInto::<u8>::try_into(last_octet).expect("invalid character");
+
+        if dot_count != 3 {
+            return Err(AddrParseError);
+        }
+
+        Ok(Ipv4Addr(octets))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::Ipv4Addr> for Ipv4Addr {
+    fn from(addr: std::net::Ipv4Addr) -> Self {
+        Self(addr.octets())
+    }
+}
+
+impl AsRef<[u8; 4]> for Ipv4Addr {
+    fn as_ref(&self) -> &[u8; 4] {
+        &self.0
+    }
+}
+
+/// `no_std` implementation of `std::net::Ipv6Addr`.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Ipv6Addr([u8; 16]);
+
+impl TryFrom<&str> for Ipv6Addr {
+    type Error = AddrParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        // Compressed addresses are not supported. Also, IPv4-mapped IPv6
+        // addresses are not supported. This makes 8 groups of 4
+        // hexadecimal characters + 7 colons.
+        if value.len() != 39 {
+            return Err(AddrParseError);
+        }
+
+        let mut is_first_byte = true;
+        let mut current_textual_block_size = 0;
+        let mut colon_count = 0;
+
+        let mut octet = 0;
+        let mut previous_character = None;
+        let mut octets: [u8; 16] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        for (i, &b) in value.as_bytes().iter().enumerate() {
+            match b {
+                b':' => {
+                    if is_first_byte {
+                        // Uncompressed IPv6 address cannot start with a colon.
+                        return Err(AddrParseError);
+                    }
+                    if i == value.len() - 1 {
+                        // Uncompressed IPv6 address cannot end with a colon.
+                        return Err(AddrParseError);
+                    }
+                    if colon_count == 7 {
+                        // IPv6 address cannot have more than seven colons.
+                        return Err(AddrParseError);
+                    }
+                    colon_count += 1;
+                    if current_textual_block_size == 0 {
+                        // Uncompressed IPv6 address cannot contain two colons in a row.
+                        return Err(AddrParseError);
+                    }
+                    if current_textual_block_size != 4 {
+                        // Compressed IPv6 addresses are not supported.
+                        return Err(AddrParseError);
+                    }
+                    // We move on to the next textual block.
+                    current_textual_block_size = 0;
+                    previous_character = None;
+                }
+                character @ b'0'..=b'9' | character @ b'a'..=b'f' | character @ b'A'..=b'F' => {
+                    if current_textual_block_size == 4 {
+                        // Blocks cannot contain more than 4 hexadecimal characters.
+                        return Err(AddrParseError);
+                    }
+                    if let Some(previous_character_) = previous_character {
+                        octets[octet] = (TryInto::<u8>::try_into(
+                            TryInto::<u8>::try_into(
+                                (TryInto::<char>::try_into(previous_character_)
+                                    .expect("invalid character"))
+                                .to_digit(16)
+                                // Safe to unwrap because we know character is within hexadecimal bounds ([0-9a-f])
+                                .unwrap(),
+                            )
+                            .expect("invalid character"),
+                        )
+                        .expect("invalid character")
+                            << 4)
+                            | (TryInto::<u8>::try_into(
+                                TryInto::<char>::try_into(character)
+                                    .expect("invalid character")
+                                    .to_digit(16)
+                                    // Safe to unwrap because we know character is within hexadecimal bounds ([0-9a-f])
+                                    .unwrap(),
+                            )
+                            .expect("invalid character"));
+                        previous_character = None;
+                        octet += 1;
+                    } else {
+                        previous_character = Some(character);
+                    }
+                    current_textual_block_size += 1;
+                }
+                _ => {
+                    return Err(AddrParseError);
+                }
+            }
+
+            is_first_byte = false;
+        }
+
+        if colon_count != 7 {
+            return Err(AddrParseError);
+        }
+
+        Ok(Ipv6Addr(octets))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::Ipv6Addr> for Ipv6Addr {
+    fn from(addr: std::net::Ipv6Addr) -> Self {
+        Self(addr.octets())
+    }
+}
+
+impl AsRef<[u8; 16]> for Ipv6Addr {
+    fn as_ref(&self) -> &[u8; 16] {
+        &self.0
+    }
+}
+
+/// An error indicating that an `IpAddrRef` could not built because
+/// the input could not be parsed as an IP address.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AddrParseError;
+
+impl core::fmt::Display for AddrParseError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl ::std::error::Error for AddrParseError {}
 
 #[cfg(test)]
 mod tests {
@@ -398,5 +665,334 @@ mod tests {
             format!("{:?}", DnsName::try_from(&b"\x80"[..])),
             "Err(InvalidDnsNameError)"
         );
+    }
+
+    const fn ipv4_address(
+        ip_address: &str,
+        octets: [u8; 4],
+    ) -> (&str, Result<Ipv4Addr, AddrParseError>) {
+        (ip_address, Ok(Ipv4Addr(octets)))
+    }
+
+    const IPV4_ADDRESSES: &[(&str, Result<Ipv4Addr, AddrParseError>)] = &[
+        // Valid IPv4 addresses
+        ipv4_address("0.0.0.0", [0, 0, 0, 0]),
+        ipv4_address("1.1.1.1", [1, 1, 1, 1]),
+        ipv4_address("205.0.0.0", [205, 0, 0, 0]),
+        ipv4_address("0.205.0.0", [0, 205, 0, 0]),
+        ipv4_address("0.0.205.0", [0, 0, 205, 0]),
+        ipv4_address("0.0.0.205", [0, 0, 0, 205]),
+        ipv4_address("0.0.0.20", [0, 0, 0, 20]),
+        // Invalid IPv4 addresses
+        ("", Err(AddrParseError)),
+        ("...", Err(AddrParseError)),
+        (".0.0.0.0", Err(AddrParseError)),
+        ("0.0.0.0.", Err(AddrParseError)),
+        ("0.0.0", Err(AddrParseError)),
+        ("0.0.0.", Err(AddrParseError)),
+        ("256.0.0.0", Err(AddrParseError)),
+        ("0.256.0.0", Err(AddrParseError)),
+        ("0.0.256.0", Err(AddrParseError)),
+        ("0.0.0.256", Err(AddrParseError)),
+        ("1..1.1.1", Err(AddrParseError)),
+        ("1.1..1.1", Err(AddrParseError)),
+        ("1.1.1..1", Err(AddrParseError)),
+        ("025.0.0.0", Err(AddrParseError)),
+        ("0.025.0.0", Err(AddrParseError)),
+        ("0.0.025.0", Err(AddrParseError)),
+        ("0.0.0.025", Err(AddrParseError)),
+        ("1234.0.0.0", Err(AddrParseError)),
+        ("0.1234.0.0", Err(AddrParseError)),
+        ("0.0.1234.0", Err(AddrParseError)),
+        ("0.0.0.1234", Err(AddrParseError)),
+    ];
+
+    #[test]
+    fn parse_ipv4_address_test() {
+        for &(ip_address, expected_result) in IPV4_ADDRESSES {
+            assert_eq!(Ipv4Addr::try_from(ip_address), expected_result);
+        }
+    }
+
+    const fn ipv6_address(
+        ip_address: &str,
+        octets: [u8; 16],
+    ) -> (&str, Result<Ipv6Addr, AddrParseError>) {
+        (ip_address, Ok(Ipv6Addr(octets)))
+    }
+
+    const IPV6_ADDRESSES: &[(&str, Result<Ipv6Addr, AddrParseError>)] = &[
+        // Valid IPv6 addresses
+        ipv6_address(
+            "2a05:d018:076c:b685:e8ab:afd3:af51:3aed",
+            [
+                0x2a, 0x05, 0xd0, 0x18, 0x07, 0x6c, 0xb6, 0x85, 0xe8, 0xab, 0xaf, 0xd3, 0xaf, 0x51,
+                0x3a, 0xed,
+            ],
+        ),
+        ipv6_address(
+            "2A05:D018:076C:B685:E8AB:AFD3:AF51:3AED",
+            [
+                0x2a, 0x05, 0xd0, 0x18, 0x07, 0x6c, 0xb6, 0x85, 0xe8, 0xab, 0xaf, 0xd3, 0xaf, 0x51,
+                0x3a, 0xed,
+            ],
+        ),
+        ipv6_address(
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            [
+                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff,
+            ],
+        ),
+        ipv6_address(
+            "FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF",
+            [
+                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff,
+            ],
+        ),
+        ipv6_address(
+            "FFFF:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            [
+                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff,
+            ],
+        ),
+        // Invalid IPv6 addresses
+        // Missing octets on uncompressed addresses. The unmatching letter has the violation
+        (
+            "aaa:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:aaa:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:aaa:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:aaa:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:aaa:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:aaa:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:aaa:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:aaa",
+            Err(AddrParseError),
+        ),
+        // Wrong hexadecimal characters on different positions
+        (
+            "ffgf:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:gfff:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:fffg:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffgf:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:gfff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:fgff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffgf:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffgf:fffg",
+            Err(AddrParseError),
+        ),
+        // Wrong colons on uncompressed addresses
+        (
+            ":ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff::ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff::ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff::ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff::ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff::ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff::ffff:ffff",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff::ffff",
+            Err(AddrParseError),
+        ),
+        // More colons than allowed
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:",
+            Err(AddrParseError),
+        ),
+        (
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            Err(AddrParseError),
+        ),
+        // v Invalid hexadecimal
+        (
+            "ga05:d018:076c:b685:e8ab:afd3:af51:3aed",
+            Err(AddrParseError),
+        ),
+        // Cannot start with colon
+        (
+            ":a05:d018:076c:b685:e8ab:afd3:af51:3aed",
+            Err(AddrParseError),
+        ),
+        // Cannot end with colon
+        (
+            "2a05:d018:076c:b685:e8ab:afd3:af51:3ae:",
+            Err(AddrParseError),
+        ),
+        // Cannot have more than seven colons
+        (
+            "2a05:d018:076c:b685:e8ab:afd3:af51:3a::",
+            Err(AddrParseError),
+        ),
+        // Cannot contain two colons in a row
+        (
+            "2a05::018:076c:b685:e8ab:afd3:af51:3aed",
+            Err(AddrParseError),
+        ),
+        // v Textual block size is longer
+        (
+            "2a056:d018:076c:b685:e8ab:afd3:af51:3ae",
+            Err(AddrParseError),
+        ),
+        // v Textual block size is shorter
+        (
+            "2a0:d018:076c:b685:e8ab:afd3:af51:3aed ",
+            Err(AddrParseError),
+        ),
+        // Shorter IPv6 address
+        ("d018:076c:b685:e8ab:afd3:af51:3aed", Err(AddrParseError)),
+        // Longer IPv6 address
+        (
+            "2a05:d018:076c:b685:e8ab:afd3:af51:3aed3aed",
+            Err(AddrParseError),
+        ),
+        // These are valid IPv6 addresses, but we don't support compressed addresses
+        ("0:0:0:0:0:0:0:1", Err(AddrParseError)),
+        (
+            "2a05:d018:76c:b685:e8ab:afd3:af51:3aed",
+            Err(AddrParseError),
+        ),
+    ];
+
+    #[test]
+    fn parse_ipv6_address_test() {
+        for &(ip_address, expected_result) in IPV6_ADDRESSES {
+            assert_eq!(Ipv6Addr::try_from(ip_address), expected_result);
+        }
+    }
+
+    #[test]
+    fn try_from_ascii_ip_address_test() {
+        const IP_ADDRESSES: &[(&str, Result<IpAddr, AddrParseError>)] = &[
+            // Valid IPv4 addresses
+            ("127.0.0.1", Ok(IpAddr::V4(Ipv4Addr([127, 0, 0, 1])))),
+            // Invalid IPv4 addresses
+            (
+                // Ends with a dot; misses one octet
+                "127.0.0.",
+                Err(AddrParseError),
+            ),
+            // Valid IPv6 addresses
+            (
+                "0000:0000:0000:0000:0000:0000:0000:0001",
+                Ok(IpAddr::V6(Ipv6Addr([
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                ]))),
+            ),
+            // Invalid IPv6 addresses
+            (
+                // IPv6 addresses in compressed form are not supported
+                "0:0:0:0:0:0:0:1",
+                Err(AddrParseError),
+            ),
+            // Something else
+            (
+                // A hostname
+                "example.com",
+                Err(AddrParseError),
+            ),
+        ];
+        for &(ip_address, expected_result) in IP_ADDRESSES {
+            assert_eq!(IpAddr::try_from(ip_address), expected_result)
+        }
+    }
+
+    #[test]
+    fn try_from_ascii_str_ip_address_test() {
+        const IP_ADDRESSES: &[(&str, Result<IpAddr, AddrParseError>)] = &[
+            // Valid IPv4 addresses
+            ("127.0.0.1", Ok(IpAddr::V4(Ipv4Addr([127, 0, 0, 1])))),
+            // Invalid IPv4 addresses
+            (
+                // Ends with a dot; misses one octet
+                "127.0.0.",
+                Err(AddrParseError),
+            ),
+            // Valid IPv6 addresses
+            (
+                "0000:0000:0000:0000:0000:0000:0000:0001",
+                Ok(IpAddr::V6(Ipv6Addr([
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                ]))),
+            ),
+            // Invalid IPv6 addresses
+            (
+                // IPv6 addresses in compressed form are not supported
+                "0:0:0:0:0:0:0:1",
+                Err(AddrParseError),
+            ),
+            // Something else
+            (
+                // A hostname
+                "example.com",
+                Err(AddrParseError),
+            ),
+        ];
+        for &(ip_address, expected_result) in IP_ADDRESSES {
+            assert_eq!(IpAddr::try_from(ip_address), expected_result)
+        }
     }
 }

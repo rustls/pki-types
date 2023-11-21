@@ -43,7 +43,9 @@ use core::time::Duration;
 use std::time::SystemTime;
 
 mod server_name;
-pub use server_name::{DnsName, InvalidDnsNameError, ServerName};
+pub use server_name::{
+    AddrParseError, DnsName, InvalidDnsNameError, IpAddr, Ipv4Addr, Ipv6Addr, ServerName,
+};
 
 /// A DER-encoded X.509 private key, in one of several formats
 ///
