@@ -46,7 +46,7 @@ use std::time::SystemTime;
 ///
 /// See variant inner types for more detailed information.
 #[non_exhaustive]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PrivateKeyDer<'a> {
     /// An RSA private key
     Pkcs1(PrivatePkcs1KeyDer<'a>),
@@ -90,7 +90,7 @@ impl<'a> From<PrivatePkcs8KeyDer<'a>> for PrivateKeyDer<'a> {
 /// RSA private keys are identified in PEM context as `RSA PRIVATE KEY` and when stored in a
 /// file usually use a `.pem` or `.key` extension. For more on PEM files, refer to the crate
 /// documentation.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct PrivatePkcs1KeyDer<'a>(Der<'a>);
 
 impl PrivatePkcs1KeyDer<'_> {
@@ -126,7 +126,7 @@ impl fmt::Debug for PrivatePkcs1KeyDer<'_> {
 /// Sec1 private keys are identified in PEM context as `EC PRIVATE KEY` and when stored in a
 /// file usually use a `.pem` or `.key` extension. For more on PEM files, refer to the crate
 /// documentation.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct PrivateSec1KeyDer<'a>(Der<'a>);
 
 impl PrivateSec1KeyDer<'_> {
@@ -162,7 +162,7 @@ impl fmt::Debug for PrivateSec1KeyDer<'_> {
 /// PKCS#8 private keys are identified in PEM context as `PRIVATE KEY` and when stored in a
 /// file usually use a `.pem` or `.key` extension. For more on PEM files, refer to the crate
 /// documentation.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct PrivatePkcs8KeyDer<'a>(Der<'a>);
 
 impl PrivatePkcs8KeyDer<'_> {
@@ -199,7 +199,7 @@ impl fmt::Debug for PrivatePkcs8KeyDer<'_> {
 /// root certificates. However, those certificates contain a lot more data than is needed for
 /// verifying certificates. The [`TrustAnchor`] representation allows an application to store
 /// just the essential elements of trust anchors.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrustAnchor<'a> {
     /// Value of the `subject` field of the trust anchor
     pub subject: Der<'a>,
@@ -230,7 +230,7 @@ impl TrustAnchor<'_> {
 ///
 /// Certificate revocation lists are identified in PEM context as `X509 CRL` and when stored in a
 /// file usually use a `.crl` extension. For more on PEM files, refer to the crate documentation.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CertificateRevocationListDer<'a>(Der<'a>);
 
 impl AsRef<[u8]> for CertificateRevocationListDer<'_> {
@@ -265,7 +265,7 @@ impl<'a> From<Vec<u8>> for CertificateRevocationListDer<'a> {
 /// Certificates are identified in PEM context as `CERTIFICATE` and when stored in a
 /// file usually use a `.pem`, `.cer` or `.crt` extension. For more on PEM files, refer to the
 /// crate documentation.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CertificateDer<'a>(Der<'a>);
 
 impl AsRef<[u8]> for CertificateDer<'_> {
@@ -369,7 +369,7 @@ pub struct InvalidSignature;
 ///     ]
 /// );
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlgorithmIdentifier(&'static [u8]);
 
 impl AlgorithmIdentifier {
@@ -430,7 +430,7 @@ impl UnixTime {
 /// This wrapper type is used to represent DER-encoded data in a way that is agnostic to whether
 /// the data is owned (by a `Vec<u8>`) or borrowed (by a `&[u8]`). Support for the owned
 /// variant is only available when the `alloc` feature is enabled.
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Der<'a>(DerInner<'a>);
 
 impl<'a> Der<'a> {
@@ -477,7 +477,15 @@ impl fmt::Debug for Der<'_> {
     }
 }
 
-#[derive(Clone, PartialEq)]
+impl PartialEq for Der<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref().eq(other.as_ref())
+    }
+}
+
+impl Eq for Der<'_> {}
+
+#[derive(Clone)]
 enum DerInner<'a> {
     #[cfg(feature = "alloc")]
     Owned(Vec<u8>),
