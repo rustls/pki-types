@@ -42,6 +42,9 @@ use core::time::Duration;
 #[cfg(feature = "std")]
 use std::time::SystemTime;
 
+mod server_name;
+pub use server_name::{DnsName, InvalidDnsNameError, ServerName};
+
 /// A DER-encoded X.509 private key, in one of several formats
 ///
 /// See variant inner types for more detailed information.
