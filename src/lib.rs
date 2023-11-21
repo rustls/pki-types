@@ -295,6 +295,14 @@ impl<'a> From<Vec<u8>> for CertificateDer<'a> {
     }
 }
 
+impl CertificateDer<'_> {
+    /// Converts this certificate into its owned variant, unfreezing borrowed content (if any)
+    #[cfg(feature = "alloc")]
+    pub fn into_owned(self) -> CertificateDer<'static> {
+        CertificateDer(Der(self.0 .0.into_owned()))
+    }
+}
+
 /// An abstract signature verification algorithm.
 ///
 /// One of these is needed per supported pair of public key type (identified
@@ -490,4 +498,14 @@ enum DerInner<'a> {
     #[cfg(feature = "alloc")]
     Owned(Vec<u8>),
     Borrowed(&'a [u8]),
+}
+
+#[cfg(feature = "alloc")]
+impl DerInner<'_> {
+    fn into_owned(self) -> DerInner<'static> {
+        DerInner::Owned(match self {
+            Self::Owned(vec) => vec,
+            Self::Borrowed(slice) => slice.to_vec(),
+        })
+    }
 }
