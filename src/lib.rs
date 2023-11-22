@@ -310,7 +310,12 @@ impl CertificateDer<'_> {
 /// `signature_alg_id()`).  Note that both of these `AlgorithmIdentifier`s include
 /// the parameters encoding, so separate `SignatureVerificationAlgorithm`s are needed
 /// for each possible public key or signature parameters.
-pub trait SignatureVerificationAlgorithm: Send + Sync {
+///
+/// Debug implementations should list the public key algorithm identifier and
+/// signature algorithm identifier in human friendly form (i.e. not encoded bytes),
+/// along with the name of the implementing library (to distinguish different
+/// implementations of the same algorithms).
+pub trait SignatureVerificationAlgorithm: Send + Sync + fmt::Debug {
     /// Verify a signature.
     ///
     /// `public_key` is the `subjectPublicKey` value from a `SubjectPublicKeyInfo` encoding
@@ -377,7 +382,7 @@ pub struct InvalidSignature;
 ///     ]
 /// );
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AlgorithmIdentifier(&'static [u8]);
 
 impl AlgorithmIdentifier {
@@ -392,6 +397,12 @@ impl AlgorithmIdentifier {
 impl AsRef<[u8]> for AlgorithmIdentifier {
     fn as_ref(&self) -> &[u8] {
         self.0
+    }
+}
+
+impl fmt::Debug for AlgorithmIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        hex(f, self.0)
     }
 }
 
@@ -481,7 +492,7 @@ impl From<Vec<u8>> for Der<'static> {
 
 impl fmt::Debug for Der<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Der").field(&self.as_ref()).finish()
+        hex(f, self.as_ref())
     }
 }
 
@@ -507,5 +518,33 @@ impl DerInner<'_> {
             Self::Owned(vec) => vec,
             Self::Borrowed(slice) => slice.to_vec(),
         })
+    }
+}
+
+// Format an iterator of u8 into a hex string
+fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>) -> fmt::Result {
+    for (i, b) in payload.into_iter().enumerate() {
+        if i == 0 {
+            write!(f, "0x")?;
+        }
+        write!(f, "{:02x}", b)?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "std")]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn der_debug() {
+        let der = Der::from_slice(&[0x01, 0x02, 0x03]);
+        assert_eq!(format!("{:?}", der), "0x010203");
+    }
+
+    #[test]
+    fn alg_id_debug() {
+        let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
+        assert_eq!(format!("{:?}", alg_id), "0x010203");
     }
 }
