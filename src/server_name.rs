@@ -277,6 +277,10 @@ fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
 }
 
 /// `no_std` implementation of `std::net::IpAddr`.
+///
+/// Note: because we intend to replace this type with `core::net::IpAddr` as soon as it is
+/// stabilized, the identity of this type should not be considered semver-stable. However, the
+/// attached interfaces are stable; they form a subset of those provided by `core::net::IpAddr`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum IpAddr {
     /// An Ipv4 address.
@@ -310,6 +314,10 @@ impl From<std::net::IpAddr> for IpAddr {
 }
 
 /// `no_std` implementation of `std::net::Ipv4Addr`.
+///
+/// Note: because we intend to replace this type with `core::net::Ipv4Addr` as soon as it is
+/// stabilized, the identity of this type should not be considered semver-stable. However, the
+/// attached interfaces are stable; they form a subset of those provided by `core::net::Ipv4Addr`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Ipv4Addr([u8; 4]);
 
@@ -340,6 +348,10 @@ impl AsRef<[u8; 4]> for Ipv4Addr {
 }
 
 /// `no_std` implementation of `std::net::Ipv6Addr`.
+///
+/// Note: because we intend to replace this type with `core::net::Ipv6Addr` as soon as it is
+/// stabilized, the identity of this type should not be considered semver-stable. However, the
+/// attached interfaces are stable; they form a subset of those provided by `core::net::Ipv6Addr`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Ipv6Addr([u8; 16]);
 
