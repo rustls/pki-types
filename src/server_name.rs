@@ -1,5 +1,7 @@
 //! DNS name validation according to RFC1035, but with underscores allowed.
 
+#[cfg(all(feature = "alloc", feature = "std"))]
+use alloc::borrow::Cow;
 #[cfg(feature = "alloc")]
 use alloc::string::{String, ToString};
 use core::hash::{Hash, Hasher};
@@ -47,6 +49,18 @@ impl<'a> ServerName<'a> {
         match self {
             Self::DnsName(d) => ServerName::DnsName(d.to_owned()),
             Self::IpAddress(i) => ServerName::IpAddress(*i),
+        }
+    }
+
+    /// Return the string representation of this `ServerName`.
+    ///
+    /// In the case of a `ServerName::DnsName` instance, this function returns a borrowed `str`.
+    /// For a `ServerName::IpAddress` instance it returns an allocated `String`.
+    #[cfg(feature = "std")]
+    pub fn to_str(&self) -> Cow<'_, str> {
+        match self {
+            Self::DnsName(d) => d.as_ref().into(),
+            Self::IpAddress(i) => std::net::IpAddr::from(*i).to_string().into(),
         }
     }
 }
@@ -313,6 +327,16 @@ impl From<std::net::IpAddr> for IpAddr {
     }
 }
 
+#[cfg(feature = "std")]
+impl From<IpAddr> for std::net::IpAddr {
+    fn from(value: IpAddr) -> Self {
+        match value {
+            IpAddr::V4(v4) => Self::from(std::net::Ipv4Addr::from(v4)),
+            IpAddr::V6(v6) => Self::from(std::net::Ipv6Addr::from(v6)),
+        }
+    }
+}
+
 /// `no_std` implementation of `std::net::Ipv4Addr`.
 ///
 /// Note: because we intend to replace this type with `core::net::Ipv4Addr` as soon as it is
@@ -338,6 +362,13 @@ impl TryFrom<&str> for Ipv4Addr {
 impl From<std::net::Ipv4Addr> for Ipv4Addr {
     fn from(addr: std::net::Ipv4Addr) -> Self {
         Self(addr.octets())
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<Ipv4Addr> for std::net::Ipv4Addr {
+    fn from(value: Ipv4Addr) -> Self {
+        Self::from(value.0)
     }
 }
 
@@ -388,6 +419,13 @@ impl From<[u16; 8]> for Ipv6Addr {
 impl From<std::net::Ipv6Addr> for Ipv6Addr {
     fn from(addr: std::net::Ipv6Addr) -> Self {
         Self(addr.octets())
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<Ipv6Addr> for std::net::Ipv6Addr {
+    fn from(value: Ipv6Addr) -> Self {
+        Self::from(value.0)
     }
 }
 
@@ -1041,5 +1079,21 @@ mod tests {
         for &(ip_address, expected_result) in IP_ADDRESSES {
             assert_eq!(IpAddr::try_from(ip_address), expected_result)
         }
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn to_str() {
+        let domain_str = "example.com";
+        let domain_servername = ServerName::try_from(domain_str).unwrap();
+        assert_eq!(domain_str, domain_servername.to_str());
+
+        let ipv4_str = "127.0.0.1";
+        let ipv4_servername = ServerName::try_from("127.0.0.1").unwrap();
+        assert_eq!(ipv4_str, ipv4_servername.to_str());
+
+        let ipv6_str = "::1";
+        let ipv6_servername = ServerName::try_from(ipv6_str).unwrap();
+        assert_eq!("::1", ipv6_servername.to_str());
     }
 }
