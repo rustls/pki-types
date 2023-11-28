@@ -537,7 +537,7 @@ fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>
     Ok(())
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
 
