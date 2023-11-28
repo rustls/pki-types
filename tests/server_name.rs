@@ -54,8 +54,6 @@ fn test_alloc_server_name_traits() {
     );
     assert_ne!(
         a,
-        ServerName::try_from(&b"example.co"[..])
-            .unwrap()
-            .to_owned()
+        ServerName::try_from(&b"example.co"[..]).unwrap().to_owned()
     );
 }
