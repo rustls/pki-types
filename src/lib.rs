@@ -204,6 +204,10 @@ impl fmt::Debug for PrivatePkcs8KeyDer<'_> {
 /// root certificates. However, those certificates contain a lot more data than is needed for
 /// verifying certificates. The [`TrustAnchor`] representation allows an application to store
 /// just the essential elements of trust anchors.
+///
+/// The most common way to get one of these is to call [`rustls_webpki::anchor_from_trusted_cert()`].
+///
+/// [`rustls_webpki::anchor_from_trusted_cert()`]: https://docs.rs/rustls-webpki/latest/webpki/fn.anchor_from_trusted_cert.html
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrustAnchor<'a> {
     /// Value of the `subject` field of the trust anchor
