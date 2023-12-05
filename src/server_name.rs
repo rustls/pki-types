@@ -29,6 +29,15 @@ use std::error::Error as StdError;
 /// let x = "example.com".try_into().expect("invalid DNS name");
 /// # let _: ServerName = x;
 /// ```
+///
+/// If you require an owned `ServerName` with a `'static` lifetime and have enabled the `alloc`
+/// feature, use [`ServerName::to_owned`]:
+///
+/// ```
+/// # use rustls_pki_types::ServerName;
+/// let my_servername = "example.com".to_string();
+/// ServerName::try_from(my_servername.as_str()).expect("invalid DNS name").to_owned();
+/// ```
 #[non_exhaustive]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub enum ServerName<'a> {
