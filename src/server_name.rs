@@ -23,6 +23,18 @@ use std::error::Error as StdError;
 /// ```
 /// # use rustls_pki_types::ServerName;
 /// ServerName::try_from("example.com").expect("invalid DNS name");
+/// ```
+///
+/// If you have an owned `String`, you can use `TryFrom` directly:
+///
+/// ```
+/// # use rustls_pki_types::ServerName;
+/// let name = "example.com".to_string();
+/// #[cfg(feature = "alloc")]
+/// ServerName::try_from(name).expect("invalid DNS name");
+/// ```
+///
+/// which will yield a `ServerName<'static>` if successful.
 ///
 /// // or, alternatively...
 ///
@@ -70,6 +82,21 @@ impl<'a> fmt::Debug for ServerName<'a> {
         match self {
             Self::DnsName(d) => f.debug_tuple("DnsName").field(&d.as_ref()).finish(),
             Self::IpAddress(i) => f.debug_tuple("IpAddress").field(i).finish(),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl TryFrom<String> for ServerName<'static> {
+    type Error = InvalidDnsNameError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match DnsName::try_from_string(value) {
+            Ok(dns) => Ok(Self::DnsName(dns)),
+            Err(value) => match IpAddr::try_from(value.as_str()) {
+                Ok(ip) => Ok(Self::IpAddress(ip)),
+                Err(_) => Err(InvalidDnsNameError),
+            },
         }
     }
 }
@@ -129,6 +156,14 @@ impl<'a> DnsName<'a> {
             Self(DnsNameInner::Owned(s)) => s.clone(),
         }))
     }
+
+    #[cfg(feature = "alloc")]
+    fn try_from_string(s: String) -> Result<Self, String> {
+        match validate(s.as_bytes()) {
+            Ok(_) => Ok(Self(DnsNameInner::Owned(s))),
+            Err(_) => Err(s),
+        }
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -136,8 +171,7 @@ impl TryFrom<String> for DnsName<'static> {
     type Error = InvalidDnsNameError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        validate(value.as_bytes())?;
-        Ok(Self(DnsNameInner::Owned(value)))
+        Self::try_from_string(value).map_err(|_| InvalidDnsNameError)
     }
 }
 
