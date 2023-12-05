@@ -91,13 +91,10 @@ impl<'a> TryFrom<&'a str> for ServerName<'a> {
     fn try_from(s: &'a str) -> Result<Self, Self::Error> {
         match DnsName::try_from(s) {
             Ok(dns) => Ok(Self::DnsName(dns)),
-            #[cfg(feature = "std")]
             Err(InvalidDnsNameError) => match IpAddr::try_from(s) {
                 Ok(ip) => Ok(Self::IpAddress(ip)),
                 Err(_) => Err(InvalidDnsNameError),
             },
-            #[cfg(not(feature = "std"))]
-            Err(InvalidDnsNameError) => Err(InvalidDnsNameError),
         }
     }
 }
