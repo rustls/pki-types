@@ -36,8 +36,9 @@ use std::error::Error as StdError;
 ///
 /// which will yield a `ServerName<'static>` if successful.
 ///
-/// // or, alternatively...
 ///
+/// or, alternatively...
+/// ```
 /// let x = "example.com".try_into().expect("invalid DNS name");
 /// # let _: ServerName = x;
 /// ```
