@@ -36,11 +36,11 @@ use std::error::Error as StdError;
 ///
 /// which will yield a `ServerName<'static>` if successful.
 ///
-///
 /// or, alternatively...
+///
 /// ```
-/// let x = "example.com".try_into().expect("invalid DNS name");
-/// # let _: ServerName = x;
+/// # use rustls_pki_types::ServerName;
+/// let x: ServerName = "example.com".try_into().expect("invalid DNS name");
 /// ```
 #[non_exhaustive]
 #[derive(Clone, Eq, Hash, PartialEq)]
