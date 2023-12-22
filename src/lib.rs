@@ -62,6 +62,17 @@ pub enum PrivateKeyDer<'a> {
 }
 
 impl<'a> PrivateKeyDer<'a> {
+    /// Clone the private key to a `'static` value
+    #[cfg(feature = "alloc")]
+    pub fn clone_key(&self) -> PrivateKeyDer<'static> {
+        use PrivateKeyDer::*;
+        match self {
+            Pkcs1(key) => Pkcs1(key.clone_key()),
+            Sec1(key) => Sec1(key.clone_key()),
+            Pkcs8(key) => Pkcs8(key.clone_key()),
+        }
+    }
+
     /// Yield the DER-encoded bytes of the private key
     pub fn secret_der(&self) -> &[u8] {
         match self {
@@ -99,6 +110,12 @@ impl<'a> From<PrivatePkcs8KeyDer<'a>> for PrivateKeyDer<'a> {
 pub struct PrivatePkcs1KeyDer<'a>(Der<'a>);
 
 impl PrivatePkcs1KeyDer<'_> {
+    /// Clone the private key to a `'static` value
+    #[cfg(feature = "alloc")]
+    pub fn clone_key(&self) -> PrivatePkcs1KeyDer<'static> {
+        PrivatePkcs1KeyDer::from(self.0.as_ref().to_vec())
+    }
+
     /// Yield the DER-encoded bytes of the private key
     pub fn secret_pkcs1_der(&self) -> &[u8] {
         self.0.as_ref()
@@ -135,6 +152,12 @@ impl fmt::Debug for PrivatePkcs1KeyDer<'_> {
 pub struct PrivateSec1KeyDer<'a>(Der<'a>);
 
 impl PrivateSec1KeyDer<'_> {
+    /// Clone the private key to a `'static` value
+    #[cfg(feature = "alloc")]
+    pub fn clone_key(&self) -> PrivateSec1KeyDer<'static> {
+        PrivateSec1KeyDer::from(self.0.as_ref().to_vec())
+    }
+
     /// Yield the DER-encoded bytes of the private key
     pub fn secret_sec1_der(&self) -> &[u8] {
         self.0.as_ref()
@@ -171,6 +194,12 @@ impl fmt::Debug for PrivateSec1KeyDer<'_> {
 pub struct PrivatePkcs8KeyDer<'a>(Der<'a>);
 
 impl PrivatePkcs8KeyDer<'_> {
+    /// Clone the private key to a `'static` value
+    #[cfg(feature = "alloc")]
+    pub fn clone_key(&self) -> PrivatePkcs8KeyDer<'static> {
+        PrivatePkcs8KeyDer::from(self.0.as_ref().to_vec())
+    }
+
     /// Yield the DER-encoded bytes of the private key
     pub fn secret_pkcs8_der(&self) -> &[u8] {
         self.0.as_ref()
