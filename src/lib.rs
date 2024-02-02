@@ -387,6 +387,11 @@ pub trait SignatureVerificationAlgorithm: Send + Sync + fmt::Debug {
     /// on the data to be verified for this `SignatureVerificationAlgorithm` to be used
     /// for signature verification.
     fn signature_alg_id(&self) -> AlgorithmIdentifier;
+
+    /// Return `true` if this is backed by a FIPS-approved implementation.
+    fn fips(&self) -> bool {
+        false
+    }
 }
 
 /// A detail-less error when a signature is not valid.
