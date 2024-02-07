@@ -51,7 +51,7 @@ pub use server_name::{
 ///
 /// See variant inner types for more detailed information.
 #[non_exhaustive]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PrivateKeyDer<'a> {
     /// An RSA private key
     Pkcs1(PrivatePkcs1KeyDer<'a>),
@@ -106,7 +106,7 @@ impl<'a> From<PrivatePkcs8KeyDer<'a>> for PrivateKeyDer<'a> {
 /// RSA private keys are identified in PEM context as `RSA PRIVATE KEY` and when stored in a
 /// file usually use a `.pem` or `.key` extension. For more on PEM files, refer to the crate
 /// documentation.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PrivatePkcs1KeyDer<'a>(Der<'a>);
 
 impl PrivatePkcs1KeyDer<'_> {
@@ -148,7 +148,7 @@ impl fmt::Debug for PrivatePkcs1KeyDer<'_> {
 /// Sec1 private keys are identified in PEM context as `EC PRIVATE KEY` and when stored in a
 /// file usually use a `.pem` or `.key` extension. For more on PEM files, refer to the crate
 /// documentation.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PrivateSec1KeyDer<'a>(Der<'a>);
 
 impl PrivateSec1KeyDer<'_> {
@@ -190,7 +190,7 @@ impl fmt::Debug for PrivateSec1KeyDer<'_> {
 /// PKCS#8 private keys are identified in PEM context as `PRIVATE KEY` and when stored in a
 /// file usually use a `.pem` or `.key` extension. For more on PEM files, refer to the crate
 /// documentation.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PrivatePkcs8KeyDer<'a>(Der<'a>);
 
 impl PrivatePkcs8KeyDer<'_> {
