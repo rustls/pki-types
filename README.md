@@ -44,9 +44,10 @@ the [rcgen](https://docs.rs/rcgen) crate can be used to create new certificates 
 This crate intentionally **does not** implement `Clone` on private key types in
 order to minimize the exposure of private key data in memory.
 
-Since these types are immutable, if you find you're self wanting to clone them
-it may be better to consider wrapping the `PrivateKeyDer<'_>` in a [`Rc`]` or
-[`Arc`].
+If you want to extend the lifetime of a `PrivateKeyDer<'_>`, consider [`PrivateKeyDer::clone_key()`]. 
+Alternatively  since these types are immutable, consider wrapping the `PrivateKeyDer<'_>` in a [`Rc`]
+or an [`Arc`].
 
 [`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
 [`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
+[`PrivateKeyDer::clone_key()`]: https://docs.rs/rustls-pki-types/latest/rustls_pki_types/enum.PrivateKeyDer.html#method.clone_key
