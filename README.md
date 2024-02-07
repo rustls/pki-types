@@ -38,3 +38,15 @@ The [rustls-pemfile](https://docs.rs/rustls-pemfile) crate can be used to parse 
 
 This crate does not provide any functionality for creating new certificates or keys. However,
 the [rcgen](https://docs.rs/rcgen) crate can be used to create new certificates and keys.
+
+## Cloning private keys
+
+This crate intentionally **does not** implement `Clone` on private key types in
+order to minimize the exposure of private key data in memory.
+
+Since these types are immutable, if you find you're self wanting to clone them
+it may be better to consider wrapping the `PrivateKeyDer<'_>` in a [`Rc`]` or
+[`Arc`].
+
+[`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
+[`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
