@@ -14,6 +14,10 @@ categories = ["network-programming", "data-structures", "cryptography"]
 default = ["alloc"]
 alloc = []
 std = ["alloc"]
+web = ["web-time"]
+
+[target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
+web-time = { version = "1", optional = true }
 
 [package.metadata.docs.rs]
 all-features = true
