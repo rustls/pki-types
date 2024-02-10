@@ -38,6 +38,16 @@
 //! [`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
 //! [`PrivateKeyDer::clone_key()`]: https://docs.rs/rustls-pki-types/latest/rustls_pki_types/enum.PrivateKeyDer.html#method.clone_key
+//!
+//! ## Target `wasm32-unknown-unknown` with the `web` feature
+//!
+//! [`std::time::SystemTime`](https://doc.rust-lang.org/std/time/struct.SystemTime.html)
+//! is unavailable in `wasm32-unknown-unknown` targets, so calls to
+//! [`UnixTime::now()`](https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.UnixTime.html#method.now),
+//! otherwise enabled by the [`std`](https://docs.rs/crate/rustls-pki-types/latest/features#std) feature,
+//! require building instead with the [`web`](https://docs.rs/crate/rustls-pki-types/latest/features#web)
+//! feature. It gets time by calling [`Date.now()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now)
+//! in the browser.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unreachable_pub, clippy::use_self)]
@@ -52,8 +62,13 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Deref;
 use core::time::Duration;
-#[cfg(feature = "std")]
+#[cfg(all(
+    feature = "std",
+    not(all(target_family = "wasm", target_os = "unknown"))
+))]
 use std::time::SystemTime;
+#[cfg(all(target_family = "wasm", target_os = "unknown", feature = "web"))]
+use web_time::SystemTime;
 
 mod server_name;
 pub use server_name::{
@@ -512,7 +527,13 @@ pub struct UnixTime(u64);
 
 impl UnixTime {
     /// The current time, as a `UnixTime`
-    #[cfg(feature = "std")]
+    #[cfg(any(
+        all(
+            feature = "std",
+            not(all(target_family = "wasm", target_os = "unknown"))
+        ),
+        all(target_family = "wasm", target_os = "unknown", feature = "web")
+    ))]
     pub fn now() -> Self {
         Self::since_unix_epoch(
             SystemTime::now()
