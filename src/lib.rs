@@ -311,6 +311,40 @@ impl<'a> From<Vec<u8>> for CertificateRevocationListDer<'a> {
     }
 }
 
+/// A Certificate Signing Request; as specified in RFC 2986
+///
+/// Certificate signing requests are identified in PEM context as `CERTIFICATE REQUEST` and when stored in a
+/// file usually use a `.csr` extension. For more on PEM files, refer to the crate documentation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CertificateSigningRequestDer<'a>(Der<'a>);
+
+impl AsRef<[u8]> for CertificateSigningRequestDer<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl Deref for CertificateSigningRequestDer<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl<'a> From<&'a [u8]> for CertificateSigningRequestDer<'a> {
+    fn from(slice: &'a [u8]) -> Self {
+        Self(Der::from(slice))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<'a> From<Vec<u8>> for CertificateSigningRequestDer<'a> {
+    fn from(vec: Vec<u8>) -> Self {
+        Self(Der::from(vec))
+    }
+}
+
 /// A DER-encoded X.509 certificate; as specified in RFC 5280
 ///
 /// Certificates are identified in PEM context as `CERTIFICATE` and when stored in a
