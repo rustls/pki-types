@@ -14,6 +14,10 @@ categories = ["network-programming", "data-structures", "cryptography"]
 default = ["alloc"]
 alloc = []
 std = ["alloc"]
+wasm-bindgen = ["time/wasm-bindgen"]
+
+[dependencies]
+time = { version = "0.3", optional = true }
 
 [package.metadata.docs.rs]
 all-features = true

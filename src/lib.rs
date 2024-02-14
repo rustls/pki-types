@@ -514,11 +514,20 @@ impl UnixTime {
     /// The current time, as a `UnixTime`
     #[cfg(feature = "std")]
     pub fn now() -> Self {
-        Self::since_unix_epoch(
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap(), // Safe: this code did not exist before 1970.
-        )
+        #[cfg(feature = "wasm-bindgen")] {
+            Self::since_unix_epoch(
+                Duration::from_secs(time::OffsetDateTime::now_utc().unix_timestamp() as u64),
+            )
+        }
+
+        #[cfg(not(feature = "wasm-bindgen"))]
+        {
+            Self::since_unix_epoch(
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap(), // Safe: this code did not exist before 1970.
+            )
+        }
     }
 
     /// Convert a `Duration` since the start of 1970 to a `UnixTime`
