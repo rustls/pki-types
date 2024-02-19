@@ -192,7 +192,7 @@ impl<'a> From<Vec<u8>> for PrivateSec1KeyDer<'a> {
 
 impl fmt::Debug for PrivateSec1KeyDer<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("PrivatePkcs1KeyDer")
+        f.debug_tuple("PrivateSec1KeyDer")
             .field(&"[secret key elided]")
             .finish()
     }
@@ -234,7 +234,7 @@ impl<'a> From<Vec<u8>> for PrivatePkcs8KeyDer<'a> {
 
 impl fmt::Debug for PrivatePkcs8KeyDer<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("PrivatePkcs1KeyDer")
+        f.debug_tuple("PrivatePkcs8KeyDer")
             .field(&"[secret key elided]")
             .finish()
     }
