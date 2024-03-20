@@ -129,6 +129,104 @@ impl<'a> From<PrivatePkcs8KeyDer<'a>> for PrivateKeyDer<'a> {
     }
 }
 
+impl<'a> TryFrom<&'a [u8]> for PrivateKeyDer<'a> {
+    type Error = &'static str;
+
+    fn try_from(key: &'a [u8]) -> Result<Self, Self::Error> {
+        const SHORT_FORM_LEN_MAX: u8 = 128;
+        const TAG_SEQUENCE: u8 = 0x30;
+        const TAG_INTEGER: u8 = 0x02;
+
+        // We expect all key formats to begin with a SEQUENCE, which requires at least 2 bytes
+        // in the short length encoding.
+        if key.first() != Some(&TAG_SEQUENCE) || key.len() < 2 {
+            return Err(INVALID_KEY_DER_ERR);
+        }
+
+        // The length of the SEQUENCE is encoded in the second byte. We must skip this many bytes.
+        let skip_len = match key[1] >= SHORT_FORM_LEN_MAX {
+            // 1 byte for SEQUENCE tag, 1 byte for short-form len
+            false => 2,
+            // 1 byte for SEQUENCE tag, 1 byte for start of len, remaining bytes encoded
+            // in key[1].
+            true => 2 + (key[1] - SHORT_FORM_LEN_MAX) as usize,
+        };
+        let key_bytes = key.get(skip_len..).ok_or(INVALID_KEY_DER_ERR)?;
+
+        // PKCS#8 (https://www.rfc-editor.org/rfc/rfc5208) describes the PrivateKeyInfo
+        // structure as:
+        //   PrivateKeyInfo ::= SEQUENCE {
+        //      version Version,
+        //      privateKeyAlgorithm AlgorithmIdentifier {{PrivateKeyAlgorithms}},
+        //      privateKey PrivateKey,
+        //      attributes [0] Attributes OPTIONAL
+        //   }
+        // PKCS#5 (https://www.rfc-editor.org/rfc/rfc8018) describes the AlgorithmIdentifier
+        // as a SEQUENCE.
+        //
+        // Therefore, we consider the outer SEQUENCE, a Version of 0, and the start of
+        // an AlgorithmIdentifier to be enough to identify a PKCS#8 key. If it were PKCS#1,
+        // the version would not be followed by a SEQUENCE. If it were SEC1, the version would
+        // not have been 0.
+        if key_bytes.starts_with(&[TAG_INTEGER, 0x01, 0x00, TAG_SEQUENCE]) {
+            return Ok(Self::Pkcs8(key.into()));
+        }
+
+        // PKCS#1 (https://www.rfc-editor.org/rfc/rfc8017) describes the RSAPrivateKey structure
+        // as:
+        //  RSAPrivateKey ::= SEQUENCE {
+        //              version           Version,
+        //              modulus           INTEGER,  -- n
+        //              publicExponent    INTEGER,  -- e
+        //              privateExponent   INTEGER,  -- d
+        //              prime1            INTEGER,  -- p
+        //              prime2            INTEGER,  -- q
+        //              exponent1         INTEGER,  -- d mod (p-1)
+        //              exponent2         INTEGER,  -- d mod (q-1)
+        //              coefficient       INTEGER,  -- (inverse of q) mod p
+        //              otherPrimeInfos   OtherPrimeInfos OPTIONAL
+        //          }
+        //
+        // Therefore, we consider the outer SEQUENCE and a Version of 0 to be enough to identify
+        // a PKCS#1 key. If it were PKCS#8, the version would be followed by a SEQUENCE. If it
+        // were SEC1, the VERSION would have been 1.
+        if key_bytes.starts_with(&[TAG_INTEGER, 0x01, 0x00]) {
+            return Ok(Self::Pkcs1(key.into()));
+        }
+
+        // SEC1 (https://www.rfc-editor.org/rfc/rfc5915) describes the ECPrivateKey structure as:
+        //   ECPrivateKey ::= SEQUENCE {
+        //      version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+        //      privateKey     OCTET STRING,
+        //      parameters [0] ECParameters {{ NamedCurve }} OPTIONAL,
+        //      publicKey  [1] BIT STRING OPTIONAL
+        //   }
+        //
+        // Therefore, we consider the outer SEQUENCE and an INTEGER of 1 to be enough to
+        // identify a SEC1 key. If it were PKCS#8 or PKCS#1, the version would have been 0.
+        if key_bytes.starts_with(&[TAG_INTEGER, 0x01, 0x01]) {
+            return Ok(Self::Sec1(key.into()));
+        }
+
+        Err(INVALID_KEY_DER_ERR)
+    }
+}
+
+static INVALID_KEY_DER_ERR: &str = "unknown or invalid key format";
+
+#[cfg(feature = "alloc")]
+impl<'a> TryFrom<Vec<u8>> for PrivateKeyDer<'a> {
+    type Error = &'static str;
+
+    fn try_from(key: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(match PrivateKeyDer::try_from(&key[..])? {
+            PrivateKeyDer::Pkcs1(_) => Self::Pkcs1(key.into()),
+            PrivateKeyDer::Sec1(_) => Self::Sec1(key.into()),
+            PrivateKeyDer::Pkcs8(_) => Self::Pkcs8(key.into()),
+        })
+    }
+}
+
 /// A DER-encoded plaintext RSA private key; as specified in PKCS#1/RFC 3447
 ///
 /// RSA private keys are identified in PEM context as `RSA PRIVATE KEY` and when stored in a
@@ -657,5 +755,60 @@ mod tests {
     fn alg_id_debug() {
         let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
         assert_eq!(format!("{:?}", alg_id), "0x010203");
+    }
+}
+
+#[cfg(test)]
+mod non_std_tests {
+    use super::*;
+
+    #[test]
+    fn test_private_key_from_der() {
+        fn is_pkcs8(key: &PrivateKeyDer<'_>) -> bool {
+            matches!(key, PrivateKeyDer::Pkcs8(_))
+        }
+        fn is_pkcs1(key: &PrivateKeyDer<'_>) -> bool {
+            matches!(key, PrivateKeyDer::Pkcs1(_))
+        }
+        fn is_sec1(key: &PrivateKeyDer<'_>) -> bool {
+            matches!(key, PrivateKeyDer::Sec1(_))
+        }
+
+        let test_cases: &[(&[u8], fn(&PrivateKeyDer<'_>) -> bool); 10] = &[
+            (&include_bytes!("test_keys/eddsakey.der")[..], is_pkcs8),
+            (&include_bytes!("test_keys/nistp256key.der")[..], is_sec1),
+            (
+                &include_bytes!("test_keys/nistp256key.pkcs8.der")[..],
+                is_pkcs8,
+            ),
+            (&include_bytes!("test_keys/nistp384key.der")[..], is_sec1),
+            (
+                &include_bytes!("test_keys/nistp384key.pkcs8.der")[..],
+                is_pkcs8,
+            ),
+            (&include_bytes!("test_keys/nistp521key.der")[..], is_sec1),
+            (
+                &include_bytes!("test_keys/nistp521key.pkcs8.der")[..],
+                is_pkcs8,
+            ),
+            (
+                &include_bytes!("test_keys/rsa2048key.pkcs1.der")[..],
+                is_pkcs1,
+            ),
+            (
+                &include_bytes!("test_keys/rsa2048key.pkcs8.der")[..],
+                is_pkcs8,
+            ),
+            (
+                &include_bytes!("test_keys/rsa4096key.pkcs8.der")[..],
+                is_pkcs8,
+            ),
+        ];
+
+        for (key_bytes, expected_check_fn) in test_cases.iter() {
+            assert!(expected_check_fn(
+                &PrivateKeyDer::try_from(*key_bytes).unwrap()
+            ));
+        }
     }
 }
