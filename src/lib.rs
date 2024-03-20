@@ -129,6 +129,57 @@ impl<'a> From<PrivatePkcs8KeyDer<'a>> for PrivateKeyDer<'a> {
     }
 }
 
+impl<'a> TryFrom<&'a [u8]> for PrivateKeyDer<'a> {
+    type Error = &'static str;
+
+    fn try_from(key: &'a [u8]) -> Result<Self, Self::Error> {
+        if key.len() <= 5 || key[0] != 0x30 {
+            return Err("invalid key format");
+        }
+
+        // We skip the tag and the length of the sequence
+        let mut skip_len = 2;
+
+        // We skip additonal length bytes
+        if key[1] >= 0x81 {
+            skip_len += key[1] - 0x80;
+        }
+
+        match key.get(skip_len as usize..) {
+            Some([0x02, 0x01, 0x00, // Version = 0
+            0x30, // Sequence
+            ..]) => {
+                Ok(Self::Pkcs8(key.into()))
+            }
+
+            Some([0x02, 0x01, 0x01, // This is decoded as PKI header with value 1
+            ..]) => {
+                Ok(Self::Sec1(key.into()))
+            }
+
+            Some([0x02, 0x01, 0x00, // Version = 0
+            ..]) => {
+                Ok(Self::Pkcs1(key.into()))
+            }
+
+            _ => Err("invalid key format"),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<'a> TryFrom<Vec<u8>> for PrivateKeyDer<'a> {
+    type Error = &'static str;
+
+    fn try_from(key: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(match PrivateKeyDer::try_from(&key[..])? {
+            PrivateKeyDer::Pkcs1(_) => Self::Pkcs1(key.into()),
+            PrivateKeyDer::Sec1(_) => Self::Sec1(key.into()),
+            PrivateKeyDer::Pkcs8(_) => Self::Pkcs8(key.into()),
+        })
+    }
+}
+
 /// A DER-encoded plaintext RSA private key; as specified in PKCS#1/RFC 3447
 ///
 /// RSA private keys are identified in PEM context as `RSA PRIVATE KEY` and when stored in a
@@ -657,5 +708,63 @@ mod tests {
     fn alg_id_debug() {
         let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
         assert_eq!(format!("{:?}", alg_id), "0x010203");
+    }
+}
+
+#[cfg(test)]
+mod non_std_tests {
+    use super::*;
+
+    #[test]
+    fn test_private_key_from_bytes() {
+        let key = include_bytes!("test_keys/eddsakey.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+
+        let key = include_bytes!("test_keys/nistp256key.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Sec1(_)));
+
+        let key = include_bytes!("test_keys/nistp256key.pkcs8.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+
+        let key = include_bytes!("test_keys/nistp384key.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Sec1(_)));
+
+        let key = include_bytes!("test_keys/nistp384key.pkcs8.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+
+        let key = include_bytes!("test_keys/nistp521key.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Sec1(_)));
+
+        let key = include_bytes!("test_keys/nistp521key.pkcs8.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+
+        let key = include_bytes!("test_keys/rsa2048key.pkcs1.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs1(_)));
+
+        let key = include_bytes!("test_keys/rsa2048key.pkcs8.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+
+        let key = include_bytes!("test_keys/rsa4096key.pkcs8.der");
+        let key = PrivateKeyDer::try_from(&key[..]).unwrap();
+
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
     }
 }
