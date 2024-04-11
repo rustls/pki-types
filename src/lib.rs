@@ -249,14 +249,14 @@ impl PrivatePkcs1KeyDer<'_> {
 
 impl<'a> From<&'a [u8]> for PrivatePkcs1KeyDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(Der(DerInner::Borrowed(slice)))
+        Self(Der(BytesInner::Borrowed(slice)))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl<'a> From<Vec<u8>> for PrivatePkcs1KeyDer<'a> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Der(DerInner::Owned(vec)))
+        Self(Der(BytesInner::Owned(vec)))
     }
 }
 
@@ -291,14 +291,14 @@ impl PrivateSec1KeyDer<'_> {
 
 impl<'a> From<&'a [u8]> for PrivateSec1KeyDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(Der(DerInner::Borrowed(slice)))
+        Self(Der(BytesInner::Borrowed(slice)))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl<'a> From<Vec<u8>> for PrivateSec1KeyDer<'a> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Der(DerInner::Owned(vec)))
+        Self(Der(BytesInner::Owned(vec)))
     }
 }
 
@@ -333,14 +333,14 @@ impl PrivatePkcs8KeyDer<'_> {
 
 impl<'a> From<&'a [u8]> for PrivatePkcs8KeyDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(Der(DerInner::Borrowed(slice)))
+        Self(Der(BytesInner::Borrowed(slice)))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl<'a> From<Vec<u8>> for PrivatePkcs8KeyDer<'a> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Der(DerInner::Owned(vec)))
+        Self(Der(BytesInner::Owned(vec)))
     }
 }
 
@@ -658,12 +658,12 @@ impl UnixTime {
 /// the data is owned (by a `Vec<u8>`) or borrowed (by a `&[u8]`). Support for the owned
 /// variant is only available when the `alloc` feature is enabled.
 #[derive(Clone)]
-pub struct Der<'a>(DerInner<'a>);
+pub struct Der<'a>(BytesInner<'a>);
 
 impl<'a> Der<'a> {
     /// A const constructor to create a `Der` from a borrowed slice
     pub const fn from_slice(der: &'a [u8]) -> Self {
-        Self(DerInner::Borrowed(der))
+        Self(BytesInner::Borrowed(der))
     }
 }
 
@@ -671,8 +671,8 @@ impl AsRef<[u8]> for Der<'_> {
     fn as_ref(&self) -> &[u8] {
         match &self.0 {
             #[cfg(feature = "alloc")]
-            DerInner::Owned(vec) => vec.as_ref(),
-            DerInner::Borrowed(slice) => slice,
+            BytesInner::Owned(vec) => vec.as_ref(),
+            BytesInner::Borrowed(slice) => slice,
         }
     }
 }
@@ -687,14 +687,14 @@ impl Deref for Der<'_> {
 
 impl<'a> From<&'a [u8]> for Der<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(DerInner::Borrowed(slice))
+        Self(BytesInner::Borrowed(slice))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Vec<u8>> for Der<'static> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(DerInner::Owned(vec))
+        Self(BytesInner::Owned(vec))
     }
 }
 
@@ -713,16 +713,16 @@ impl PartialEq for Der<'_> {
 impl Eq for Der<'_> {}
 
 #[derive(Clone)]
-enum DerInner<'a> {
+enum BytesInner<'a> {
     #[cfg(feature = "alloc")]
     Owned(Vec<u8>),
     Borrowed(&'a [u8]),
 }
 
 #[cfg(feature = "alloc")]
-impl DerInner<'_> {
-    fn into_owned(self) -> DerInner<'static> {
-        DerInner::Owned(match self {
+impl BytesInner<'_> {
+    fn into_owned(self) -> BytesInner<'static> {
+        BytesInner::Owned(match self {
             Self::Owned(vec) => vec,
             Self::Borrowed(slice) => slice.to_vec(),
         })
