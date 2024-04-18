@@ -502,7 +502,7 @@ impl CertificateDer<'_> {
 
 /// A TLS-encoded Encrypted Client Hello (ECH) configuration list (`ECHConfigList`); as specified in
 /// [draft-ietf-tls-esni-18 §4](https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-18#section-4)
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct EchConfigListBytes<'a>(BytesInner<'a>);
 
 impl EchConfigListBytes<'_> {
@@ -519,21 +519,9 @@ impl fmt::Debug for EchConfigListBytes<'_> {
     }
 }
 
-impl PartialEq for EchConfigListBytes<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_ref().eq(other.as_ref())
-    }
-}
-
-impl Eq for EchConfigListBytes<'_> {}
-
 impl AsRef<[u8]> for EchConfigListBytes<'_> {
     fn as_ref(&self) -> &[u8] {
-        match &self.0 {
-            #[cfg(feature = "alloc")]
-            BytesInner::Owned(vec) => vec.as_ref(),
-            BytesInner::Borrowed(slice) => slice,
-        }
+        self.0.as_ref()
     }
 }
 
@@ -715,7 +703,7 @@ impl UnixTime {
 /// This wrapper type is used to represent DER-encoded data in a way that is agnostic to whether
 /// the data is owned (by a `Vec<u8>`) or borrowed (by a `&[u8]`). Support for the owned
 /// variant is only available when the `alloc` feature is enabled.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Der<'a>(BytesInner<'a>);
 
 impl<'a> Der<'a> {
@@ -727,11 +715,7 @@ impl<'a> Der<'a> {
 
 impl AsRef<[u8]> for Der<'_> {
     fn as_ref(&self) -> &[u8] {
-        match &self.0 {
-            #[cfg(feature = "alloc")]
-            BytesInner::Owned(vec) => vec.as_ref(),
-            BytesInner::Borrowed(slice) => slice,
-        }
+        self.0.as_ref()
     }
 }
 
@@ -762,15 +746,7 @@ impl fmt::Debug for Der<'_> {
     }
 }
 
-impl PartialEq for Der<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_ref().eq(other.as_ref())
-    }
-}
-
-impl Eq for Der<'_> {}
-
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum BytesInner<'a> {
     #[cfg(feature = "alloc")]
     Owned(Vec<u8>),
@@ -786,6 +762,24 @@ impl BytesInner<'_> {
         })
     }
 }
+
+impl AsRef<[u8]> for BytesInner<'_> {
+    fn as_ref(&self) -> &[u8] {
+        match &self {
+            #[cfg(feature = "alloc")]
+            BytesInner::Owned(vec) => vec.as_ref(),
+            BytesInner::Borrowed(slice) => slice,
+        }
+    }
+}
+
+impl PartialEq for BytesInner<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
+}
+
+impl Eq for BytesInner<'_> {}
 
 // Format an iterator of u8 into a hex string
 fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>) -> fmt::Result {
@@ -812,5 +806,35 @@ mod tests {
     fn alg_id_debug() {
         let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
         assert_eq!(format!("{:?}", alg_id), "0x010203");
+    }
+
+    #[test]
+    fn bytes_inner_equality() {
+        let owned_a = BytesInner::Owned(vec![1, 2, 3]);
+        let owned_b = BytesInner::Owned(vec![4, 5]);
+        let borrowed_a = BytesInner::Borrowed(&[1, 2, 3]);
+        let borrowed_b = BytesInner::Borrowed(&[99]);
+
+        // Self-equality.
+        assert_eq!(owned_a, owned_a);
+        assert_eq!(owned_b, owned_b);
+        assert_eq!(borrowed_a, borrowed_a);
+        assert_eq!(borrowed_b, borrowed_b);
+
+        // Borrowed vs Owned equality
+        assert_eq!(owned_a, borrowed_a);
+        assert_eq!(borrowed_a, owned_a);
+
+        // Owned inequality
+        assert_ne!(owned_a, owned_b);
+        assert_ne!(owned_b, owned_a);
+
+        // Borrowed inequality
+        assert_ne!(borrowed_a, borrowed_b);
+        assert_ne!(borrowed_b, borrowed_a);
+
+        // Borrowed vs Owned inequality
+        assert_ne!(owned_a, borrowed_b);
+        assert_ne!(borrowed_b, owned_a);
     }
 }
