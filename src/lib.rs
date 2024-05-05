@@ -500,6 +500,45 @@ impl CertificateDer<'_> {
     }
 }
 
+/// A DER-encoded SubjectPublicKeyInfo (SPKI), as specified in RFC 5280.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SubjectPublicKeyInfo<'a>(Der<'a>);
+
+impl AsRef<[u8]> for SubjectPublicKeyInfo<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl Deref for SubjectPublicKeyInfo<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl<'a> From<&'a [u8]> for SubjectPublicKeyInfo<'a> {
+    fn from(slice: &'a [u8]) -> Self {
+        Self(Der::from(slice))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<'a> From<Vec<u8>> for SubjectPublicKeyInfo<'a> {
+    fn from(vec: Vec<u8>) -> Self {
+        Self(Der::from(vec))
+    }
+}
+
+impl SubjectPublicKeyInfo<'_> {
+    /// Converts this SubjectPublicKeyInfo into its owned variant, unfreezing borrowed content (if any)
+    #[cfg(feature = "alloc")]
+    pub fn into_owned(self) -> SubjectPublicKeyInfo<'static> {
+        SubjectPublicKeyInfo(Der(self.0 .0.into_owned()))
+    }
+}
+
 /// A TLS-encoded Encrypted Client Hello (ECH) configuration list (`ECHConfigList`); as specified in
 /// [draft-ietf-tls-esni-18 §4](https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-18#section-4)
 #[derive(Clone, Eq, PartialEq)]
