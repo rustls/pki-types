@@ -502,15 +502,15 @@ impl CertificateDer<'_> {
 
 /// A DER-encoded SubjectPublicKeyInfo (SPKI), as specified in RFC 5280.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SubjectPublicKeyInfo<'a>(Der<'a>);
+pub struct SubjectPublicKeyInfoDer<'a>(Der<'a>);
 
-impl AsRef<[u8]> for SubjectPublicKeyInfo<'_> {
+impl AsRef<[u8]> for SubjectPublicKeyInfoDer<'_> {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
 }
 
-impl Deref for SubjectPublicKeyInfo<'_> {
+impl Deref for SubjectPublicKeyInfoDer<'_> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -518,24 +518,24 @@ impl Deref for SubjectPublicKeyInfo<'_> {
     }
 }
 
-impl<'a> From<&'a [u8]> for SubjectPublicKeyInfo<'a> {
+impl<'a> From<&'a [u8]> for SubjectPublicKeyInfoDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
         Self(Der::from(slice))
     }
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for SubjectPublicKeyInfo<'a> {
+impl<'a> From<Vec<u8>> for SubjectPublicKeyInfoDer<'a> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der::from(vec))
     }
 }
 
-impl SubjectPublicKeyInfo<'_> {
+impl SubjectPublicKeyInfoDer<'_> {
     /// Converts this SubjectPublicKeyInfo into its owned variant, unfreezing borrowed content (if any)
     #[cfg(feature = "alloc")]
-    pub fn into_owned(self) -> SubjectPublicKeyInfo<'static> {
-        SubjectPublicKeyInfo(Der(self.0 .0.into_owned()))
+    pub fn into_owned(self) -> SubjectPublicKeyInfoDer<'static> {
+        SubjectPublicKeyInfoDer(Der(self.0 .0.into_owned()))
     }
 }
 
