@@ -501,6 +501,10 @@ impl CertificateDer<'_> {
 }
 
 /// A DER-encoded SubjectPublicKeyInfo (SPKI), as specified in RFC 5280.
+#[deprecated(since = "1.7.0", note = "Prefer `SubjectPublicKeyInfoDer` instead")]
+pub type SubjectPublicKeyInfo<'a> = SubjectPublicKeyInfoDer<'a>;
+
+/// A DER-encoded SubjectPublicKeyInfo (SPKI), as specified in RFC 5280.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SubjectPublicKeyInfoDer<'a>(Der<'a>);
 
