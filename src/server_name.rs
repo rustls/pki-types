@@ -442,7 +442,7 @@ impl From<[u16; 8]> for Ipv6Addr {
         Self(
             // All elements in `addr16` are big endian.
             // SAFETY: `[u16; 8]` is always safe to transmute to `[u8; 16]`.
-            unsafe { mem::transmute::<_, [u8; 16]>(addr16) },
+            unsafe { mem::transmute::<[u16; 8], [u8; 16]>(addr16) },
         )
     }
 }
