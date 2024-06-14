@@ -133,7 +133,7 @@ pub struct DnsName<'a>(DnsNameInner<'a>);
 
 impl<'a> DnsName<'a> {
     /// Produce a borrowed `DnsName` from this owned `DnsName`.
-    pub fn borrow(&'a self) -> DnsName<'_> {
+    pub fn borrow(&'a self) -> Self {
         Self(match self {
             Self(DnsNameInner::Borrowed(s)) => DnsNameInner::Borrowed(s),
             #[cfg(feature = "alloc")]
@@ -179,7 +179,7 @@ impl TryFrom<String> for DnsName<'static> {
 impl<'a> TryFrom<&'a str> for DnsName<'a> {
     type Error = InvalidDnsNameError;
 
-    fn try_from(value: &'a str) -> Result<DnsName<'a>, Self::Error> {
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         validate(value.as_bytes())?;
         Ok(Self(DnsNameInner::Borrowed(value)))
     }
@@ -188,7 +188,7 @@ impl<'a> TryFrom<&'a str> for DnsName<'a> {
 impl<'a> TryFrom<&'a [u8]> for DnsName<'a> {
     type Error = InvalidDnsNameError;
 
-    fn try_from(value: &'a [u8]) -> Result<DnsName<'a>, Self::Error> {
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         validate(value)?;
         Ok(Self(DnsNameInner::Borrowed(str::from_utf8(value).unwrap())))
     }
@@ -211,8 +211,8 @@ enum DnsNameInner<'a> {
     Owned(String),
 }
 
-impl<'a> PartialEq<DnsNameInner<'a>> for DnsNameInner<'a> {
-    fn eq(&self, other: &DnsNameInner<'a>) -> bool {
+impl<'a> PartialEq<Self> for DnsNameInner<'a> {
+    fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Borrowed(s), Self::Borrowed(o)) => s.eq_ignore_ascii_case(o),
             #[cfg(feature = "alloc")]
@@ -479,7 +479,7 @@ mod parser {
     }
 
     impl<'a> Parser<'a> {
-        pub(super) fn new(input: &'a [u8]) -> Parser<'a> {
+        pub(super) fn new(input: &'a [u8]) -> Self {
             Parser { state: input }
         }
 
