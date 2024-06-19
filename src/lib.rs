@@ -71,6 +71,7 @@ use std::time::SystemTime;
 use web_time::SystemTime;
 
 mod server_name;
+
 pub use server_name::{
     AddrParseError, DnsName, InvalidDnsNameError, IpAddr, Ipv4Addr, Ipv6Addr, ServerName,
 };
@@ -464,6 +465,13 @@ impl<'a> From<Vec<u8>> for CertificateSigningRequestDer<'a> {
 /// crate documentation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CertificateDer<'a>(Der<'a>);
+
+impl<'a> CertificateDer<'a> {
+    /// A const constructor to create a `CertificateDer` from a slice of DER.
+    pub const fn from_slice(bytes: &'a [u8]) -> Self {
+        Self(Der::from_slice(bytes))
+    }
+}
 
 impl AsRef<[u8]> for CertificateDer<'_> {
     fn as_ref(&self) -> &[u8] {
