@@ -463,6 +463,9 @@ impl<'a> From<Vec<u8>> for CertificateSigningRequestDer<'a> {
 /// Certificates are identified in PEM context as `CERTIFICATE` and when stored in a
 /// file usually use a `.pem`, `.cer` or `.crt` extension. For more on PEM files, refer to the
 /// crate documentation.
+///
+/// This type is available as either `rustls_pki_types::CertificateDer` or re-exported as
+/// `rustls::pki_types::CertificateDer`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CertificateDer<'a>(Der<'a>);
 
