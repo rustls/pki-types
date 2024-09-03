@@ -70,7 +70,18 @@ use std::time::SystemTime;
 #[cfg(all(target_family = "wasm", target_os = "unknown", feature = "web"))]
 use web_time::SystemTime;
 
+mod base64;
 mod server_name;
+
+/// Low-level PEM decoding APIs.
+///
+/// These APIs allow decoding PEM format in an iterator, which means you
+/// can load multiple different types of `Item` from a single file.
+#[cfg(feature = "alloc")]
+pub mod pem;
+
+#[cfg(feature = "alloc")]
+use pem::Item;
 
 pub use server_name::{
     AddrParseError, DnsName, InvalidDnsNameError, IpAddr, Ipv4Addr, Ipv6Addr, ServerName,
