@@ -40,6 +40,10 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      - name: Install valgrind
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
       - name: cargo test (debug; default features)
         run: cargo test
         env:
@@ -166,3 +170,27 @@ jobs:
           for target in $(cargo fuzz list) ; do
             cargo fuzz run $target -- -max_total_time=10
           done
+
+  valgrind:
+    name: Check side-channels on base64 decoder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install valgrind
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Build and run test
+        run: |
+          cargo test --all-features --lib
+          exe=$(cargo test --all-features --no-run --message-format json | \
+                jq --slurp --raw-output '.[] | select(.reason == "compiler-artifact") | select(.target.name == "rustls_pki_types") | select(.profile.test) | .executable')
+          valgrind --error-exitcode=99 --exit-on-first-error=yes $exe
+
