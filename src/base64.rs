@@ -702,6 +702,28 @@ mod tests {
         }
     }
 
+    #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn codepoint_decode_secret_does_not_branch_or_index_on_secret_input() {
+        // this is using the same theory as <https://github.com/agl/ctgrind>
+        use crabgrind as cg;
+
+        if matches!(cg::run_mode(), cg::RunMode::Native) {
+            std::println!("SKIPPED: must be run under valgrind");
+            return;
+        }
+
+        let input = [b'a'];
+        cg::monitor_command(format!(
+            "make_memory undefined {:p} {}",
+            input.as_ptr(),
+            input.len()
+        ))
+        .unwrap();
+
+        core::hint::black_box(CodePoint::decode_secret(input[0]));
+    }
+
     #[track_caller]
     fn decode(input: &[u8]) -> alloc::vec::Vec<u8> {
         let length = decoded_length(input.len());

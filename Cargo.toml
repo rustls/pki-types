@@ -16,6 +16,9 @@ alloc = []
 std = ["alloc"]
 web = ["web-time"]
 
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dev-dependencies]
+crabgrind = "=0.1.9" # compatible with valgrind package on GHA ubuntu-latest
+
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 web-time = { version = "1", optional = true }
 
