@@ -195,38 +195,29 @@ fn read_one_impl(
         return Ok(ControlFlow::Continue(()));
     }
 
-    if let Some((section_type, end_marker)) = section.as_ref() {
+    if let Some((section_label, end_marker)) = section.as_ref() {
         if line.starts_with(end_marker) {
-            let mut der = vec![0u8; base64::decoded_length(b64buf.len())];
-
-            let der_len = match &section_type[..] {
-                b"RSA PRIVATE KEY" | b"PRIVATE KEY" | b"EC PRIVATE KEY" => {
-                    base64::decode_secret(b64buf, &mut der)
-                }
-                _ => base64::decode_public(b64buf, &mut der),
-            }
-            .map_err(|err| Error::Base64Decode(format!("{err:?}")))?
-            .len();
-            der.truncate(der_len);
-
-            let item = match section_type.as_slice() {
-                b"CERTIFICATE" => Some(Item::X509Certificate(der.into())),
-                b"PUBLIC KEY" => Some(Item::SubjectPublicKeyInfo(der.into())),
-                b"RSA PRIVATE KEY" => Some(Item::Pkcs1Key(der.into())),
-                b"PRIVATE KEY" => Some(Item::Pkcs8Key(der.into())),
-                b"EC PRIVATE KEY" => Some(Item::Sec1Key(der.into())),
-                b"X509 CRL" => Some(Item::Crl(der.into())),
-                b"CERTIFICATE REQUEST" => Some(Item::Csr(der.into())),
-                _ => {
+            let kind = match SectionKind::try_from(&section_label[..]) {
+                Ok(kind) => kind,
+                // unhandled section: have caller try again
+                Err(()) => {
                     *section = None;
                     b64buf.clear();
-                    None
+                    return Ok(ControlFlow::Continue(()));
                 }
             };
 
-            if item.is_some() {
-                return Ok(ControlFlow::Break(item));
+            let mut der = vec![0u8; base64::decoded_length(b64buf.len())];
+            let der_len = match kind.secret() {
+                true => base64::decode_secret(b64buf, &mut der),
+                false => base64::decode_public(b64buf, &mut der),
             }
+            .map_err(|err| Error::Base64Decode(format!("{err:?}")))?
+            .len();
+
+            der.truncate(der_len);
+
+            return Ok(ControlFlow::Break(Some(kind.item(der))));
         }
     }
 
@@ -235,6 +226,84 @@ fn read_one_impl(
     }
 
     Ok(ControlFlow::Continue(()))
+}
+
+/// A single recognised section in a PEM file.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SectionKind {
+    /// A DER-encoded x509 certificate.
+    ///
+    /// Appears as "CERTIFICATE" in PEM files.
+    Certificate,
+
+    /// A DER-encoded Subject Public Key Info; as specified in RFC 7468.
+    ///
+    /// Appears as "PUBLIC KEY" in PEM files.
+    PublicKey,
+
+    /// A DER-encoded plaintext RSA private key; as specified in PKCS #1/RFC 3447
+    ///
+    /// Appears as "RSA PRIVATE KEY" in PEM files.
+    RsaPrivateKey,
+
+    /// A DER-encoded plaintext private key; as specified in PKCS #8/RFC 5958
+    ///
+    /// Appears as "PRIVATE KEY" in PEM files.
+    PrivateKey,
+
+    /// A Sec1-encoded plaintext private key; as specified in RFC 5915
+    ///
+    /// Appears as "EC PRIVATE KEY" in PEM files.
+    EcPrivateKey,
+
+    /// A Certificate Revocation List; as specified in RFC 5280
+    ///
+    /// Appears as "X509 CRL" in PEM files.
+    Crl,
+
+    /// A Certificate Signing Request; as specified in RFC 2986
+    ///
+    /// Appears as "CERTIFICATE REQUEST" in PEM files.
+    Csr,
+}
+
+impl SectionKind {
+    fn secret(&self) -> bool {
+        match self {
+            Self::RsaPrivateKey | Self::PrivateKey | Self::EcPrivateKey => true,
+            Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr => false,
+        }
+    }
+
+    fn item(&self, der: Vec<u8>) -> Item {
+        match self {
+            Self::Certificate => Item::X509Certificate(der.into()),
+            Self::PublicKey => Item::SubjectPublicKeyInfo(der.into()),
+            Self::RsaPrivateKey => Item::Pkcs1Key(der.into()),
+            Self::PrivateKey => Item::Pkcs8Key(der.into()),
+            Self::EcPrivateKey => Item::Sec1Key(der.into()),
+            Self::Crl => Item::Crl(der.into()),
+            Self::Csr => Item::Csr(der.into()),
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for SectionKind {
+    type Error = ();
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        Ok(match value {
+            b"CERTIFICATE" => Self::Certificate,
+            b"PUBLIC KEY" => Self::PublicKey,
+            b"RSA PRIVATE KEY" => Self::RsaPrivateKey,
+            b"PRIVATE KEY" => Self::PrivateKey,
+            b"EC PRIVATE KEY" => Self::EcPrivateKey,
+            b"X509 CRL" => Self::Crl,
+            b"CERTIFICATE REQUEST" => Self::Csr,
+            _ => return Err(()),
+        })
+    }
 }
 
 // Ported from https://github.com/rust-lang/rust/blob/91cfcb021935853caa06698b759c293c09d1e96a/library/std/src/io/mod.rs#L1990 and
