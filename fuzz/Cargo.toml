@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 
 [dependencies.rustls-pki-types]
 path = ".."
+features = ["std"]
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -23,5 +24,11 @@ debug = 1
 [[bin]]
 name = "private_key"
 path = "fuzz_targets/private_key.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "pem"
+path = "fuzz_targets/pem.rs"
 test = false
 doc = false
