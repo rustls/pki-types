@@ -3,65 +3,194 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use core::iter;
+use core::marker::PhantomData;
 use core::ops::ControlFlow;
+#[cfg(feature = "std")]
+use std::fs::File;
 #[cfg(feature = "std")]
 use std::io::{self, ErrorKind};
 
 use crate::base64;
-use crate::{
-    CertificateDer, CertificateRevocationListDer, CertificateSigningRequestDer, PrivatePkcs1KeyDer,
-    PrivatePkcs8KeyDer, PrivateSec1KeyDer, SubjectPublicKeyInfoDer,
-};
 
-/// The contents of a single recognised block in a PEM file.
-#[non_exhaustive]
-#[derive(Debug, PartialEq)]
-pub enum Item {
-    /// A DER-encoded x509 certificate.
+/// Items that can be decoded from PEM data.
+pub trait PemObject: Sized {
+    /// Decode the first section of this type from PEM contained in
+    /// a byte slice.
     ///
-    /// Appears as "CERTIFICATE" in PEM files.
-    X509Certificate(CertificateDer<'static>),
+    /// [`Error::NoItemsFound`] is returned if no such items are found.
+    fn from_pem_slice(pem: &[u8]) -> Result<Self, Error> {
+        Self::pem_slice_iter(pem)
+            .next()
+            .unwrap_or(Err(Error::NoItemsFound))
+    }
 
-    /// A DER-encoded Subject Public Key Info; as specified in RFC 7468.
-    ///
-    /// Appears as "PUBLIC KEY" in PEM files.
-    SubjectPublicKeyInfo(SubjectPublicKeyInfoDer<'static>),
+    /// Iterate over all sections of this type from PEM contained in
+    /// a byte slice.
+    fn pem_slice_iter(pem: &[u8]) -> SliceIter<'_, Self> {
+        SliceIter {
+            current: pem,
+            _ty: PhantomData,
+        }
+    }
 
-    /// A DER-encoded plaintext RSA private key; as specified in PKCS #1/RFC 3447
+    /// Decode the first section of this type from the PEM contents of the named file.
     ///
-    /// Appears as "RSA PRIVATE KEY" in PEM files.
-    Pkcs1Key(PrivatePkcs1KeyDer<'static>),
+    /// [`Error::NoItemsFound`] is returned if no such items are found.
+    #[cfg(feature = "std")]
+    fn from_pem_file(file_name: impl AsRef<std::path::Path>) -> Result<Self, Error> {
+        Self::pem_file_iter(file_name)?
+            .next()
+            .unwrap_or(Err(Error::NoItemsFound))
+    }
 
-    /// A DER-encoded plaintext private key; as specified in PKCS #8/RFC 5958
+    /// Iterate over all sections of this type from the PEM contents of the named file.
     ///
-    /// Appears as "PRIVATE KEY" in PEM files.
-    Pkcs8Key(PrivatePkcs8KeyDer<'static>),
+    /// This reports errors in two phases:
+    ///
+    /// - errors opening the file are reported from this function directly,
+    /// - errors reading from the file are reported from the returned iterator,
+    #[cfg(feature = "std")]
+    fn pem_file_iter(
+        file_name: impl AsRef<std::path::Path>,
+    ) -> Result<ReadIter<io::BufReader<File>, Self>, Error> {
+        Ok(ReadIter::<_, Self> {
+            rd: io::BufReader::new(File::open(file_name).map_err(Error::Io)?),
+            _ty: PhantomData,
+        })
+    }
 
-    /// A Sec1-encoded plaintext private key; as specified in RFC 5915
-    ///
-    /// Appears as "EC PRIVATE KEY" in PEM files.
-    Sec1Key(PrivateSec1KeyDer<'static>),
+    /// Decode the first section of this type from PEM read from an [`io::Read`].
+    #[cfg(feature = "std")]
+    fn from_pem_reader(rd: impl std::io::Read) -> Result<Self, Error> {
+        Self::pem_reader_iter(rd)
+            .next()
+            .unwrap_or(Err(Error::NoItemsFound))
+    }
 
-    /// A Certificate Revocation List; as specified in RFC 5280
-    ///
-    /// Appears as "X509 CRL" in PEM files.
-    Crl(CertificateRevocationListDer<'static>),
+    /// Iterate over all sections of this type from PEM present in an [`io::Read`].
+    #[cfg(feature = "std")]
+    fn pem_reader_iter<R: std::io::Read>(rd: R) -> ReadIter<io::BufReader<R>, Self> {
+        ReadIter::<_, Self> {
+            rd: io::BufReader::new(rd),
+            _ty: PhantomData,
+        }
+    }
 
-    /// A Certificate Signing Request; as specified in RFC 2986
+    /// Conversion from a PEM [`SectionKind`] and body data.
     ///
-    /// Appears as "CERTIFICATE REQUEST" in PEM files.
-    Csr(CertificateSigningRequestDer<'static>),
+    /// This inspects `kind`, and if it matches this type's PEM section kind,
+    /// converts `der` into this type.
+    fn from_pem(kind: SectionKind, der: Vec<u8>) -> Option<Self>;
 }
 
-/// Extract and decode the next PEM section from `input`
+pub(crate) trait PemObjectFilter: PemObject + From<Vec<u8>> {
+    const KIND: SectionKind;
+}
+
+impl<T: PemObjectFilter + From<Vec<u8>>> PemObject for T {
+    fn from_pem(kind: SectionKind, der: Vec<u8>) -> Option<Self> {
+        match Self::KIND == kind {
+            true => Some(Self::from(der)),
+            false => None,
+        }
+    }
+}
+
+/// Extract and return all PEM sections by reading `rd`.
+#[cfg(feature = "std")]
+pub struct ReadIter<R, T> {
+    rd: R,
+    _ty: PhantomData<T>,
+}
+
+#[cfg(feature = "std")]
+impl<R: io::BufRead, T: PemObject> ReadIter<R, T> {
+    /// Create a new iterator.
+    pub fn new(rd: R) -> Self {
+        Self {
+            rd,
+            _ty: PhantomData,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<R: io::BufRead, T: PemObject> Iterator for ReadIter<R, T> {
+    type Item = Result<T, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            return match from_buf(&mut self.rd) {
+                Ok(Some((sec, item))) => match T::from_pem(sec, item) {
+                    Some(res) => Some(Ok(res)),
+                    None => continue,
+                },
+                Ok(None) => return None,
+                Err(err) => Some(Err(err)),
+            };
+        }
+    }
+}
+
+/// Iterator over all PEM sections in a `&[u8]` slice.
+pub struct SliceIter<'a, T> {
+    current: &'a [u8],
+    _ty: PhantomData<T>,
+}
+
+impl<'a, T: PemObject> SliceIter<'a, T> {
+    /// Create a new iterator.
+    pub fn new(current: &'a [u8]) -> Self {
+        Self {
+            current,
+            _ty: PhantomData,
+        }
+    }
+
+    /// Returns the rest of the unparsed data.
+    ///
+    /// This is the slice immediately following the most
+    /// recently returned item from `next()`.
+    #[doc(hidden)]
+    pub fn remainder(&self) -> &'a [u8] {
+        self.current
+    }
+}
+
+impl<T: PemObject> Iterator for SliceIter<'_, T> {
+    type Item = Result<T, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            return match from_slice(self.current) {
+                Ok(Some(((sec, item), rest))) => {
+                    self.current = rest;
+                    match T::from_pem(sec, item) {
+                        Some(res) => Some(Ok(res)),
+                        None => continue,
+                    }
+                }
+                Ok(None) => return None,
+                Err(err) => Some(Err(err)),
+            };
+        }
+    }
+}
+
+impl PemObject for (SectionKind, Vec<u8>) {
+    fn from_pem(kind: SectionKind, der: Vec<u8>) -> Option<Self> {
+        Some((kind, der))
+    }
+}
+
+/// Extract and decode the next supported PEM section from `input`
 ///
 /// - `Ok(None)` is returned if there is no PEM section to read from `input`
 /// - Syntax errors and decoding errors produce a `Err(...)`
-/// - Otherwise each decoded section is returned with a `Ok(Some((Item::..., remainder)))` where
+/// - Otherwise each decoded section is returned with a `Ok(Some((..., remainder)))` where
 ///   `remainder` is the part of the `input` that follows the returned section
-pub fn read_one_from_slice(mut input: &[u8]) -> Result<Option<(Item, &[u8])>, Error> {
+#[allow(clippy::type_complexity)]
+fn from_slice(mut input: &[u8]) -> Result<Option<((SectionKind, Vec<u8>), &[u8])>, Error> {
     let mut b64buf = Vec::with_capacity(1024);
     let mut section = None::<(Vec<_>, Vec<_>)>;
 
@@ -77,23 +206,20 @@ pub fn read_one_from_slice(mut input: &[u8]) -> Result<Option<(Item, &[u8])>, Er
             None
         };
 
-        match read_one_impl(next_line, &mut section, &mut b64buf)? {
+        match read(next_line, &mut section, &mut b64buf)? {
             ControlFlow::Continue(()) => continue,
             ControlFlow::Break(item) => return Ok(item.map(|item| (item, input))),
         }
     }
 }
 
-/// Extract and decode the next PEM section from `rd`.
+/// Extract and decode the next supported PEM section from `rd`.
 ///
 /// - Ok(None) is returned if there is no PEM section read from `rd`.
 /// - Underlying IO errors produce a `Err(...)`
-/// - Otherwise each decoded section is returned with a `Ok(Some(Item::...))`
-///
-/// You can use this function to build an iterator, for example:
-/// `for item in iter::from_fn(|| read_one(rd).transpose()) { ... }`
+/// - Otherwise each decoded section is returned with a `Ok(Some(...))`
 #[cfg(feature = "std")]
-pub fn read_one(rd: &mut dyn io::BufRead) -> Result<Option<Item>, Error> {
+pub fn from_buf(rd: &mut dyn io::BufRead) -> Result<Option<(SectionKind, Vec<u8>)>, Error> {
     let mut b64buf = Vec::with_capacity(1024);
     let mut section = None::<(Vec<_>, Vec<_>)>;
     let mut line = Vec::with_capacity(80);
@@ -108,7 +234,7 @@ pub fn read_one(rd: &mut dyn io::BufRead) -> Result<Option<Item>, Error> {
             Some(line.as_slice())
         };
 
-        match read_one_impl(next_line, &mut section, &mut b64buf) {
+        match read(next_line, &mut section, &mut b64buf) {
             Ok(ControlFlow::Break(opt)) => return Ok(opt),
             Ok(ControlFlow::Continue(())) => continue,
             Err(e) => return Err(e),
@@ -116,11 +242,12 @@ pub fn read_one(rd: &mut dyn io::BufRead) -> Result<Option<Item>, Error> {
     }
 }
 
-fn read_one_impl(
+#[allow(clippy::type_complexity)]
+fn read(
     next_line: Option<&[u8]>,
     section: &mut Option<(Vec<u8>, Vec<u8>)>,
     b64buf: &mut Vec<u8>,
-) -> Result<ControlFlow<Option<Item>, ()>, Error> {
+) -> Result<ControlFlow<Option<(SectionKind, Vec<u8>)>, ()>, Error> {
     let line = if let Some(line) = next_line {
         line
     } else {
@@ -181,7 +308,7 @@ fn read_one_impl(
 
             der.truncate(der_len);
 
-            return Ok(ControlFlow::Break(Some(kind.item(der))));
+            return Ok(ControlFlow::Break(Some((kind, der))));
         }
     }
 
@@ -239,18 +366,6 @@ impl SectionKind {
             Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr => false,
         }
     }
-
-    fn item(&self, der: Vec<u8>) -> Item {
-        match self {
-            Self::Certificate => Item::X509Certificate(der.into()),
-            Self::PublicKey => Item::SubjectPublicKeyInfo(der.into()),
-            Self::RsaPrivateKey => Item::Pkcs1Key(der.into()),
-            Self::PrivateKey => Item::Pkcs8Key(der.into()),
-            Self::EcPrivateKey => Item::Sec1Key(der.into()),
-            Self::Crl => Item::Crl(der.into()),
-            Self::Csr => Item::Csr(der.into()),
-        }
-    }
 }
 
 impl TryFrom<&[u8]> for SectionKind {
@@ -292,6 +407,9 @@ pub enum Error {
     /// I/O errors, from APIs that accept `std::io` types.
     #[cfg(feature = "std")]
     Io(io::Error),
+
+    /// No items found of desired type
+    NoItemsFound,
 }
 
 // Ported from https://github.com/rust-lang/rust/blob/91cfcb021935853caa06698b759c293c09d1e96a/library/std/src/io/mod.rs#L1990 and
@@ -327,10 +445,4 @@ fn read_until_newline<R: io::BufRead + ?Sized>(r: &mut R, buf: &mut Vec<u8>) -> 
             return Ok(read);
         }
     }
-}
-
-/// Extract and return all PEM sections by reading `rd`.
-#[cfg(feature = "std")]
-pub fn read_all(rd: &mut dyn io::BufRead) -> impl Iterator<Item = Result<Item, Error>> + '_ {
-    iter::from_fn(move || read_one(rd).transpose())
 }
