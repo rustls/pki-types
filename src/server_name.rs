@@ -127,6 +127,45 @@ impl<'a> TryFrom<&'a str> for ServerName<'a> {
     }
 }
 
+impl From<IpAddr> for ServerName<'_> {
+    fn from(addr: IpAddr) -> Self {
+        Self::IpAddress(addr)
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::IpAddr> for ServerName<'_> {
+    fn from(addr: std::net::IpAddr) -> Self {
+        Self::IpAddress(addr.into())
+    }
+}
+
+impl From<Ipv4Addr> for ServerName<'_> {
+    fn from(v4: Ipv4Addr) -> Self {
+        Self::IpAddress(IpAddr::V4(v4))
+    }
+}
+
+impl From<Ipv6Addr> for ServerName<'_> {
+    fn from(v6: Ipv6Addr) -> Self {
+        Self::IpAddress(IpAddr::V6(v6))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::Ipv4Addr> for ServerName<'_> {
+    fn from(v4: std::net::Ipv4Addr) -> Self {
+        Self::IpAddress(IpAddr::V4(v4.into()))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::Ipv6Addr> for ServerName<'_> {
+    fn from(v6: std::net::Ipv6Addr) -> Self {
+        Self::IpAddress(IpAddr::V6(v6.into()))
+    }
+}
+
 /// A type which encapsulates a string (borrowed or owned) that is a syntactically valid DNS name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DnsName<'a>(DnsNameInner<'a>);
@@ -366,6 +405,20 @@ impl From<IpAddr> for std::net::IpAddr {
             IpAddr::V4(v4) => Self::from(std::net::Ipv4Addr::from(v4)),
             IpAddr::V6(v6) => Self::from(std::net::Ipv6Addr::from(v6)),
         }
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::Ipv4Addr> for IpAddr {
+    fn from(v4: std::net::Ipv4Addr) -> Self {
+        Self::V4(v4.into())
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::net::Ipv6Addr> for IpAddr {
+    fn from(v6: std::net::Ipv6Addr) -> Self {
+        Self::V6(v6.into())
     }
 }
 
