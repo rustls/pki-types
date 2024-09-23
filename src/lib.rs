@@ -716,7 +716,7 @@ impl Deref for AlgorithmIdentifier {
 /// A timestamp, tracking the number of non-leap seconds since the Unix epoch.
 ///
 /// The Unix epoch is defined January 1, 1970 00:00:00 UTC.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnixTime(u64);
 
 impl UnixTime {
