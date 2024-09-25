@@ -55,30 +55,6 @@ pub enum Item {
     Csr(CertificateSigningRequestDer<'static>),
 }
 
-/// Errors that may arise when parsing the contents of a PEM file
-#[non_exhaustive]
-#[derive(Debug)]
-pub enum Error {
-    /// a section is missing its "END marker" line
-    MissingSectionEnd {
-        /// the expected "END marker" line that was not found
-        end_marker: Vec<u8>,
-    },
-
-    /// syntax error found in the line that starts a new section
-    IllegalSectionStart {
-        /// line that contains the syntax error
-        line: Vec<u8>,
-    },
-
-    /// base64 decode error
-    Base64Decode(String),
-
-    /// I/O errors, from APIs that accept `std::io` types.
-    #[cfg(feature = "std")]
-    Io(io::Error),
-}
-
 /// Extract and decode the next PEM section from `input`
 ///
 /// - `Ok(None)` is returned if there is no PEM section to read from `input`
@@ -289,6 +265,30 @@ impl TryFrom<&[u8]> for SectionKind {
             _ => return Err(()),
         })
     }
+}
+
+/// Errors that may arise when parsing the contents of a PEM file
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum Error {
+    /// a section is missing its "END marker" line
+    MissingSectionEnd {
+        /// the expected "END marker" line that was not found
+        end_marker: Vec<u8>,
+    },
+
+    /// syntax error found in the line that starts a new section
+    IllegalSectionStart {
+        /// line that contains the syntax error
+        line: Vec<u8>,
+    },
+
+    /// base64 decode error
+    Base64Decode(String),
+
+    /// I/O errors, from APIs that accept `std::io` types.
+    #[cfg(feature = "std")]
+    Io(io::Error),
 }
 
 // Ported from https://github.com/rust-lang/rust/blob/91cfcb021935853caa06698b759c293c09d1e96a/library/std/src/io/mod.rs#L1990 and
