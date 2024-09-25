@@ -66,7 +66,10 @@ pub fn read_one_from_slice(mut input: &[u8]) -> Result<Option<(Item, &[u8])>, Er
     let mut section = None::<(Vec<_>, Vec<_>)>;
 
     loop {
-        let next_line = if let Some(index) = input.iter().position(|byte| *byte == b'\n') {
+        let next_line = if let Some(index) = input
+            .iter()
+            .position(|byte| *byte == b'\n' || *byte == b'\r')
+        {
             let (line, newline_plus_remainder) = input.split_at(index);
             input = &newline_plus_remainder[1..];
             Some(line)
