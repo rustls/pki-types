@@ -8,7 +8,7 @@ This crate provides types for representing X.509 certificates, keys and other ty
 used in the rustls ecosystem. It is intended to be used by crates that need to work with such X.509
 types, such as [rustls](https://crates.io/crates/rustls),
 [rustls-webpki](https://crates.io/crates/rustls-webpki),
-[rustls-pemfile](https://crates.io/crates/rustls-pemfile), and others.
+and others.
 
 Some of these crates used to define their own trivial wrappers around DER-encoded bytes.
 However, in order to avoid inconvenient dependency edges, these were all disconnected. By
@@ -32,7 +32,7 @@ many tools and protocols use a ASCII-based encoding of DER, called PEM. In addit
 base64-encoded DER, PEM objects are delimited by header and footer lines which indicate the type
 of object contained in the PEM blob.
 
-The [rustls-pemfile](https://docs.rs/rustls-pemfile) crate can be used to parse PEM files.
+This crate's types can be created from both DER and PEM encodings.
 
 ## Creating new certificates and keys
 
