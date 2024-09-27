@@ -761,6 +761,11 @@ impl EchConfigListBytes<'_> {
     }
 }
 
+#[cfg(feature = "alloc")]
+impl PemObjectFilter for EchConfigListBytes<'static> {
+    const KIND: SectionKind = SectionKind::EchConfigList;
+}
+
 impl fmt::Debug for EchConfigListBytes<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         hex(f, self.as_ref())

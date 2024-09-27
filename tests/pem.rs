@@ -4,8 +4,9 @@ use std::io::Cursor;
 
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{
-    pem, CertificateDer, CertificateRevocationListDer, CertificateSigningRequestDer, PrivateKeyDer,
-    PrivatePkcs1KeyDer, PrivatePkcs8KeyDer, PrivateSec1KeyDer, SubjectPublicKeyInfoDer,
+    pem, CertificateDer, CertificateRevocationListDer, CertificateSigningRequestDer,
+    EchConfigListBytes, PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer, PrivateSec1KeyDer,
+    SubjectPublicKeyInfoDer,
 };
 
 #[test]
@@ -181,6 +182,20 @@ fn crls() {
 }
 
 #[test]
+fn ech_config() {
+    let data = include_bytes!("data/zen.pem");
+
+    EchConfigListBytes::from_pem_slice(data).unwrap();
+    EchConfigListBytes::from_pem_reader(&mut Cursor::new(&data[..])).unwrap();
+    EchConfigListBytes::from_pem_file("tests/data/zen.pem").unwrap();
+
+    assert!(matches!(
+        EchConfigListBytes::from_pem_file("tests/data/certificate.chain.pem").unwrap_err(),
+        pem::Error::NoItemsFound
+    ));
+}
+
+#[test]
 fn certificates_with_binary() {
     let data = include_bytes!("data/gunk.pem");
 
@@ -212,7 +227,7 @@ fn parse_in_order() {
     let items = <(pem::SectionKind, Vec<u8>) as PemObject>::pem_slice_iter(data)
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-    assert_eq!(items.len(), 11);
+    assert_eq!(items.len(), 12);
     assert!(matches!(items[0], (pem::SectionKind::Certificate, _)));
     assert!(matches!(items[1], (pem::SectionKind::Certificate, _)));
     assert!(matches!(items[2], (pem::SectionKind::Certificate, _)));
@@ -224,6 +239,7 @@ fn parse_in_order() {
     assert!(matches!(items[8], (pem::SectionKind::PrivateKey, _)));
     assert!(matches!(items[9], (pem::SectionKind::Crl, _)));
     assert!(matches!(items[10], (pem::SectionKind::Csr, _)));
+    assert!(matches!(items[11], (pem::SectionKind::EchConfigList, _)));
 }
 
 #[test]
