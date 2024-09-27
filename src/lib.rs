@@ -762,6 +762,50 @@ impl EchConfigListBytes<'_> {
 }
 
 #[cfg(feature = "alloc")]
+impl EchConfigListBytes<'static> {
+    /// Convert an iterator over PEM items into an `EchConfigListBytes` and private key.
+    ///
+    /// This handles the "ECHConfig file" format specified in
+    /// <https://www.ietf.org/archive/id/draft-farrell-tls-pemesni-05.html#name-echconfig-file>
+    ///
+    /// Use it like:
+    ///
+    /// ```rust
+    /// # #[cfg(all(feature = "alloc", feature = "std"))] {
+    /// # use rustls_pki_types::{EchConfigListBytes, pem::PemObject};
+    /// let (config, key) = EchConfigListBytes::config_and_key_from_iter(
+    ///     PemObject::pem_file_iter("tests/data/ech.pem").unwrap()
+    /// ).unwrap();
+    /// # }
+    /// ```
+    pub fn config_and_key_from_iter(
+        iter: impl Iterator<Item = Result<(SectionKind, Vec<u8>), pem::Error>>,
+    ) -> Result<(Self, PrivatePkcs8KeyDer<'static>), pem::Error> {
+        let mut key = None;
+        let mut config = None;
+
+        for item in iter {
+            let (kind, data) = item?;
+            match kind {
+                SectionKind::PrivateKey => {
+                    key = PrivatePkcs8KeyDer::from_pem(kind, data);
+                }
+                SectionKind::EchConfigList => {
+                    config = Self::from_pem(kind, data);
+                }
+                _ => continue,
+            };
+
+            if let (Some(_key), Some(_config)) = (&key, &config) {
+                return Ok((config.take().unwrap(), key.take().unwrap()));
+            }
+        }
+
+        Err(pem::Error::NoItemsFound)
+    }
+}
+
+#[cfg(feature = "alloc")]
 impl PemObjectFilter for EchConfigListBytes<'static> {
     const KIND: SectionKind = SectionKind::EchConfigList;
 }

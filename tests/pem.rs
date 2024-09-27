@@ -193,6 +193,20 @@ fn ech_config() {
         EchConfigListBytes::from_pem_file("tests/data/certificate.chain.pem").unwrap_err(),
         pem::Error::NoItemsFound
     ));
+
+    let (config, key) = EchConfigListBytes::config_and_key_from_iter(
+        PemObject::pem_file_iter("tests/data/ech.pem").unwrap(),
+    )
+    .unwrap();
+    println!("{config:?} {key:?}");
+
+    assert!(matches!(
+        EchConfigListBytes::config_and_key_from_iter(
+            PemObject::pem_file_iter("tests/data/certificate.chain.pem").unwrap(),
+        )
+        .unwrap_err(),
+        pem::Error::NoItemsFound,
+    ));
 }
 
 #[test]
