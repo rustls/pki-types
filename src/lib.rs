@@ -29,9 +29,8 @@
 //! from a slice, or from an `std::io` stream.
 //!
 //! There is also a lower-level API that allows a given PEM file to be fully consumed
-//! in one pass, even if it contains different data types: see [`pem::from_slice()`]
-//! and the implementation of the [`pem::PemObject`] trait on the `(pem::SectionKind, Vec<u8>)`
-//! tuple.
+//! in one pass, even if it contains different data types: see the implementation of
+//! the [`pem::PemObject`] trait on the `(pem::SectionKind, Vec<u8>)` tuple.
 //!
 //! ## Creating new certificates and keys
 //!
