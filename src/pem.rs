@@ -357,13 +357,21 @@ pub enum SectionKind {
     ///
     /// Appears as "CERTIFICATE REQUEST" in PEM files.
     Csr,
+
+    /// An EchConfigList structure, as specified in
+    /// <https://www.ietf.org/archive/id/draft-farrell-tls-pemesni-05.html>.
+    ///
+    /// Appears as "ECHCONFIG" in PEM files.
+    EchConfigList,
 }
 
 impl SectionKind {
     fn secret(&self) -> bool {
         match self {
             Self::RsaPrivateKey | Self::PrivateKey | Self::EcPrivateKey => true,
-            Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr => false,
+            Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr | Self::EchConfigList => {
+                false
+            }
         }
     }
 }
@@ -380,6 +388,7 @@ impl TryFrom<&[u8]> for SectionKind {
             b"EC PRIVATE KEY" => Self::EcPrivateKey,
             b"X509 CRL" => Self::Crl,
             b"CERTIFICATE REQUEST" => Self::Csr,
+            b"ECHCONFIG" => Self::EchConfigList,
             _ => return Err(()),
         })
     }
