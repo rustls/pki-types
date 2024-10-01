@@ -94,9 +94,7 @@ mod server_name;
 #[cfg(feature = "alloc")]
 pub mod pem;
 
-pub use server_name::{
-    AddrParseError, DnsName, InvalidDnsNameError, IpAddr, Ipv4Addr, Ipv6Addr, ServerName,
-};
+pub use server_name::{DnsName, InvalidDnsNameError, ServerName};
 
 /// A DER-encoded X.509 private key, in one of several formats
 ///
