@@ -3,6 +3,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::fmt;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 #[cfg(feature = "std")]
@@ -420,6 +421,26 @@ pub enum Error {
     /// No items found of desired type
     NoItemsFound,
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingSectionEnd { end_marker } => {
+                write!(f, "missing section end marker: {end_marker:?}")
+            }
+            Self::IllegalSectionStart { line } => {
+                write!(f, "illegal section start: {line:?}")
+            }
+            Self::Base64Decode(e) => write!(f, "base64 decode error: {e}"),
+            #[cfg(feature = "std")]
+            Self::Io(e) => write!(f, "I/O error: {e}"),
+            Self::NoItemsFound => write!(f, "no items found"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 // Ported from https://github.com/rust-lang/rust/blob/91cfcb021935853caa06698b759c293c09d1e96a/library/std/src/io/mod.rs#L1990 and
 // modified to look for our accepted newlines.
