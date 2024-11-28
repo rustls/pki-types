@@ -309,5 +309,5 @@ fn slice_iterator() {
         CertificateDer::from(&b"hi"[..])
     );
     assert_eq!(iter.remainder(), b"goodbye\n");
-    assert!(matches!(iter.next(), None));
+    assert!(iter.next().is_none());
 }
