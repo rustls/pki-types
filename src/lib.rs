@@ -118,7 +118,6 @@ pub use server_name::{
 /// assert!(matches!(sec1, PrivateKeyDer::Sec1(_)));
 /// # }
 /// ```
-
 #[non_exhaustive]
 #[derive(Debug, PartialEq, Eq)]
 pub enum PrivateKeyDer<'a> {
