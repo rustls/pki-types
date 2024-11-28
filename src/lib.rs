@@ -130,7 +130,7 @@ pub enum PrivateKeyDer<'a> {
     Pkcs8(PrivatePkcs8KeyDer<'a>),
 }
 
-impl<'a> PrivateKeyDer<'a> {
+impl PrivateKeyDer<'_> {
     /// Clone the private key to a `'static` value
     #[cfg(feature = "alloc")]
     pub fn clone_key(&self) -> PrivateKeyDer<'static> {
@@ -267,7 +267,7 @@ impl<'a> TryFrom<&'a [u8]> for PrivateKeyDer<'a> {
 static INVALID_KEY_DER_ERR: &str = "unknown or invalid key format";
 
 #[cfg(feature = "alloc")]
-impl<'a> TryFrom<Vec<u8>> for PrivateKeyDer<'a> {
+impl TryFrom<Vec<u8>> for PrivateKeyDer<'_> {
     type Error = &'static str;
 
     fn try_from(key: Vec<u8>) -> Result<Self, Self::Error> {
@@ -324,7 +324,7 @@ impl<'a> From<&'a [u8]> for PrivatePkcs1KeyDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for PrivatePkcs1KeyDer<'a> {
+impl From<Vec<u8>> for PrivatePkcs1KeyDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der(BytesInner::Owned(vec)))
     }
@@ -384,7 +384,7 @@ impl<'a> From<&'a [u8]> for PrivateSec1KeyDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for PrivateSec1KeyDer<'a> {
+impl From<Vec<u8>> for PrivateSec1KeyDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der(BytesInner::Owned(vec)))
     }
@@ -445,7 +445,7 @@ impl<'a> From<&'a [u8]> for PrivatePkcs8KeyDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for PrivatePkcs8KeyDer<'a> {
+impl From<Vec<u8>> for PrivatePkcs8KeyDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der(BytesInner::Owned(vec)))
     }
@@ -551,7 +551,7 @@ impl<'a> From<&'a [u8]> for CertificateRevocationListDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for CertificateRevocationListDer<'a> {
+impl From<Vec<u8>> for CertificateRevocationListDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der::from(vec))
     }
@@ -603,7 +603,7 @@ impl<'a> From<&'a [u8]> for CertificateSigningRequestDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for CertificateSigningRequestDer<'a> {
+impl From<Vec<u8>> for CertificateSigningRequestDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der::from(vec))
     }
@@ -671,7 +671,7 @@ impl<'a> From<&'a [u8]> for CertificateDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for CertificateDer<'a> {
+impl From<Vec<u8>> for CertificateDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der::from(vec))
     }
@@ -734,7 +734,7 @@ impl<'a> From<&'a [u8]> for SubjectPublicKeyInfoDer<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for SubjectPublicKeyInfoDer<'a> {
+impl From<Vec<u8>> for SubjectPublicKeyInfoDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(Der::from(vec))
     }
@@ -837,7 +837,7 @@ impl<'a> From<&'a [u8]> for EchConfigListBytes<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> From<Vec<u8>> for EchConfigListBytes<'a> {
+impl From<Vec<u8>> for EchConfigListBytes<'_> {
     fn from(vec: Vec<u8>) -> Self {
         Self(BytesInner::Owned(vec))
     }
