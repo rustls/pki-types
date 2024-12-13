@@ -203,6 +203,10 @@ fn from_slice(mut input: &[u8]) -> Result<Option<((SectionKind, Vec<u8>), &[u8])
             let (line, newline_plus_remainder) = input.split_at(index);
             input = &newline_plus_remainder[1..];
             Some(line)
+        } else if !input.is_empty() {
+            let next_line = input;
+            input = &[];
+            Some(next_line)
         } else {
             None
         };
