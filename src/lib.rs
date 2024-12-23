@@ -83,6 +83,7 @@ use std::time::SystemTime;
 #[cfg(all(target_family = "wasm", target_os = "unknown", feature = "web"))]
 use web_time::SystemTime;
 
+pub mod alg_id;
 mod base64;
 mod server_name;
 
