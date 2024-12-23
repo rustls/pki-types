@@ -6,14 +6,14 @@ These files were encoded with the help of [der-ascii]. They can be decoded
 using:
 
 ```sh
-go get github.com/google/der-ascii/cmd/der2ascii
+go install github.com/google/der-ascii/cmd/der2ascii@latest
 der2ascii -i <filename> -o <filename>.ascii
 ```
 
 New or modified der-ascii files can be encoded using:
 
 ```sh
-go get github.com/google/der-ascii/cmd/ascii2der
+go install github.com/google/der-ascii/cmd/ascii2der@latest
 ascii2der i <filename>.ascii -o <filename>
 ```
 
