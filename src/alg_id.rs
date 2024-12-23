@@ -1,9 +1,10 @@
-//! Common values of the PKIX [`AlgorithmIdentifier`] type.
+//! The PKIX [`AlgorithmIdentifier`] type, and common values.
 //!
 //! If you need to use an [`AlgorithmIdentifier`] not defined here,
 //! you can define it locally.
 
-use super::AlgorithmIdentifier;
+use core::fmt;
+use core::ops::Deref;
 
 // See src/data/README.md.
 
@@ -269,3 +270,66 @@ pub const RSA_PSS_SHA512: AlgorithmIdentifier =
 /// ```
 pub const ED25519: AlgorithmIdentifier =
     AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ed25519.der"));
+
+/// A DER encoding of the PKIX AlgorithmIdentifier type:
+///
+/// ```ASN.1
+/// AlgorithmIdentifier  ::=  SEQUENCE  {
+///     algorithm               OBJECT IDENTIFIER,
+///     parameters              ANY DEFINED BY algorithm OPTIONAL  }
+///                                -- contains a value of the type
+///                                -- registered for use with the
+///                                -- algorithm object identifier value
+/// ```
+/// (from <https://www.rfc-editor.org/rfc/rfc5280#section-4.1.1.2>)
+///
+/// The outer sequence encoding is *not included*, so this is the DER encoding
+/// of an OID for `algorithm` plus the `parameters` value.
+///
+/// For example, this is the `rsaEncryption` algorithm (but prefer to use the constant
+/// [`RSA_ENCRYPTION`] instead):
+///
+/// ```
+/// let rsa_encryption = rustls_pki_types::AlgorithmIdentifier::from_slice(
+///     &[
+///         // algorithm: 1.2.840.113549.1.1.1
+///         0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
+///         // parameters: NULL
+///         0x05, 0x00
+///     ]
+/// );
+/// assert_eq!(rustls_pki_types::alg_id::RSA_ENCRYPTION, rsa_encryption);
+/// ```
+///
+/// Common values for this type are provided in this module.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct AlgorithmIdentifier(&'static [u8]);
+
+impl AlgorithmIdentifier {
+    /// Makes a new `AlgorithmIdentifier` from a static octet slice.
+    ///
+    /// This does not validate the contents of the slice.
+    pub const fn from_slice(bytes: &'static [u8]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl AsRef<[u8]> for AlgorithmIdentifier {
+    fn as_ref(&self) -> &[u8] {
+        self.0
+    }
+}
+
+impl fmt::Debug for AlgorithmIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        super::hex(f, self.0)
+    }
+}
+
+impl Deref for AlgorithmIdentifier {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
