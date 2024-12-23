@@ -1,7 +1,7 @@
-//! Encodings of the PKIX AlgorithmIdentifier type.
+//! Common values of the PKIX [`AlgorithmIdentifier`] type.
 //!
-//! This module contains a set of common values, and exists to keep the
-//! names of these separate from the actual algorithm implementations.
+//! If you need to use an [`AlgorithmIdentifier`] not defined here,
+//! you can define it locally.
 
 use super::AlgorithmIdentifier;
 
