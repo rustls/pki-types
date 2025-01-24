@@ -204,6 +204,14 @@ impl<'a> DnsName<'a> {
             Err(_) => Err(s),
         }
     }
+
+    /// Produces a borrowed [`DnsName`] from a borrowed [`str`].
+    pub const fn try_from_str(s: &str) -> Result<DnsName<'_>, InvalidDnsNameError> {
+        match validate(s.as_bytes()) {
+            Ok(_) => Ok(DnsName(DnsNameInner::Borrowed(s))),
+            Err(err) => Err(err),
+        }
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -219,8 +227,7 @@ impl<'a> TryFrom<&'a str> for DnsName<'a> {
     type Error = InvalidDnsNameError;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        validate(value.as_bytes())?;
-        Ok(Self(DnsNameInner::Borrowed(value)))
+        DnsName::try_from_str(value)
     }
 }
 
@@ -300,7 +307,7 @@ impl fmt::Display for InvalidDnsNameError {
 #[cfg(feature = "std")]
 impl StdError for InvalidDnsNameError {}
 
-fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
+const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     enum State {
         Start,
         Next,
@@ -323,7 +330,9 @@ fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
         return Err(InvalidDnsNameError);
     }
 
-    for ch in input {
+    let mut idx = 0;
+    while idx < input.len() {
+        let ch = input[idx];
         state = match (state, ch) {
             (Start | Next | NextAfterNumericOnly | Hyphen { .. }, b'.') => {
                 return Err(InvalidDnsNameError)
@@ -349,6 +358,7 @@ fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
             ) => Subsequent { len: len + 1 },
             _ => return Err(InvalidDnsNameError),
         };
+        idx += 1;
     }
 
     if matches!(
