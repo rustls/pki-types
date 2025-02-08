@@ -331,11 +331,15 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
 
     match input.len() {
         0 | 255.. => return Err(InvalidDnsNameError),
-        // This is a `const fn`, so we cannot use
-        // `Option::unwrap_or_else(|| unreachable!("bug in [u8]::len()")).
-        MAX_NAME_LENGTH_WITH_TRAILING_DOT if *input.last().unwrap() != b'.' => {
-            return Err(InvalidDnsNameError)
-        }
+        MAX_NAME_LENGTH_WITH_TRAILING_DOT => if let Some(lst) = input.last() {
+            if *lst != b'.' {
+                return Err(InvalidDnsNameError);
+            }
+        } else {
+            // Ideally this would be `unreachable`, but that can't happen until
+            // MSRV is updated to a version where it is `const`.
+            panic!("there is a bug in [u8]::len()");
+        },
         _ => (),
     }
 
