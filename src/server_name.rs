@@ -323,11 +323,20 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     /// "Labels must be 63 characters or less."
     const MAX_LABEL_LENGTH: usize = 63;
 
-    /// https://devblogs.microsoft.com/oldnewthing/20120412-00/?p=7873
-    const MAX_NAME_LENGTH: usize = 253;
+    /// The maximum lenght of a domain name is 253 when there is no trailing dot.
+    /// When there is a trailing dot, the maximum length is 254. This is true since
+    /// a domain with a trailing dot gets transformed into the same wire-format value
+    /// as one without.
+    const MAX_NAME_LENGTH_WITH_TRAILING_DOT: usize = 254;
 
-    if input.len() > MAX_NAME_LENGTH {
-        return Err(InvalidDnsNameError);
+    match input.len() {
+        0 | 255.. => return Err(InvalidDnsNameError),
+        // This is a `const fn`, so we cannot use
+        // `Option::unwrap_or_else(|| unreachable!("bug in [u8]::len()")).
+        MAX_NAME_LENGTH_WITH_TRAILING_DOT if *input.last().unwrap() != b'.' => {
+            return Err(InvalidDnsNameError)
+        }
+        _ => (),
     }
 
     let mut idx = 0;
@@ -838,6 +847,7 @@ mod tests {
         ("numeric-only-middle-label.4.com", true),
         ("1000-sans.badssl.com", true),
         ("twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfi", true),
+        ("twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourc.", true),
         ("twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourc", false),
     ];
 
