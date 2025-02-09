@@ -320,14 +320,43 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     use State::*;
     let mut state = Start;
 
-    /// "Labels must be 63 characters or less."
+    /// The maximum length of a label in wire format is 63 octets per
+    /// [RFC 1035 § 2.3.4](https://www.rfc-editor.org/rfc/rfc1035#section-2.3.4).
     const MAX_LABEL_LENGTH: usize = 63;
 
-    /// https://devblogs.microsoft.com/oldnewthing/20120412-00/?p=7873
-    const MAX_NAME_LENGTH: usize = 253;
+    /// The maximum length of a domain in wire format is 255 octets per
+    /// [RFC 1035 § 2.3.4](https://www.rfc-editor.org/rfc/rfc1035#section-2.3.4).
+    const MAX_NAME_LENGTH: usize = 255;
 
-    if input.len() > MAX_NAME_LENGTH {
-        return Err(InvalidDnsNameError);
+    match input.last() {
+        // Empty domains are not valid.
+        None => return Err(InvalidDnsNameError),
+        // `input` is a domain in _representation format_, but length requirments are based on the
+        // wire format. For representation formats that forbid the root domain (represented as either `b" "` or
+        // `b"."`), allow a trailing `b'.'`, and where each "character"/`u8` in a label is transformed to a `u8`
+        // (e.g., there are no "escape characters"); then the formula is simple: add `1` when there is a trailing
+        // `b'.'` otherwise add `2`.
+        //
+        // Examples
+        //
+        // * "ab.c" gets transformed to the wire format [0x02, 0x61, 0x62, 0x01, 0x63, 0x00]. As we see the length
+        //   of the representation format is 4 and the length of the wire format is 6 and 4 + 2 = 6.
+        // * "ab.c." gets transformed to the wire format [0x02, 0x61, 0x62, 0x01, 0x63, 0x00]. As we see the length
+        //   of the representation format is 5 and the length of the wire format is 6 and 5 + 1 = 6.
+        //
+        // Note when `input` is the root domain this calculation is incorrect; however we fail later anyway.
+        // Alternatively we could explicitly error here when `*lst` is `b' '` or `*lst` is `b'.'` and the length
+        // is `1`. We elect to defer to the parsing code below.
+        Some(lst) => match input.len().checked_add(if *lst == b'.' { 1 } else { 2 }) {
+            // `usize::MAX >= u16::MAX > u8::MAX = 255 = MAX_NAME_LENGTH`; thus we know `input` is invalid since
+            // it's too long.
+            None => return Err(InvalidDnsNameError),
+            Some(len) => {
+                if len > MAX_NAME_LENGTH {
+                    return Err(InvalidDnsNameError);
+                }
+            }
+        },
     }
 
     let mut idx = 0;
@@ -838,6 +867,7 @@ mod tests {
         ("numeric-only-middle-label.4.com", true),
         ("1000-sans.badssl.com", true),
         ("twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfi", true),
+        ("twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfour.", true),
         ("twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourc", false),
     ];
 
