@@ -335,14 +335,14 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
         let ch = input[idx];
         state = match (state, ch) {
             (Start | Next | NextAfterNumericOnly | Hyphen { .. }, b'.') => {
-                return Err(InvalidDnsNameError)
+                return Err(InvalidDnsNameError);
             }
             (Subsequent { .. }, b'.') => Next,
             (NumericOnly { .. }, b'.') => NextAfterNumericOnly,
             (Subsequent { len } | NumericOnly { len } | Hyphen { len }, _)
                 if len >= MAX_LABEL_LENGTH =>
             {
-                return Err(InvalidDnsNameError)
+                return Err(InvalidDnsNameError);
             }
             (Start | Next | NextAfterNumericOnly, b'0'..=b'9') => NumericOnly { len: 1 },
             (NumericOnly { len }, b'0'..=b'9') => NumericOnly { len: len + 1 },
@@ -837,8 +837,14 @@ mod tests {
         ("a123b.com", true),
         ("numeric-only-middle-label.4.com", true),
         ("1000-sans.badssl.com", true),
-        ("twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfi", true),
-        ("twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourc", false),
+        (
+            "twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfi",
+            true,
+        ),
+        (
+            "twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourcharacters.twohundredandfiftyfourc",
+            false,
+        ),
     ];
 
     #[cfg(feature = "alloc")]

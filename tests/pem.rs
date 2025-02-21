@@ -4,9 +4,9 @@ use std::io::Cursor;
 
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{
-    pem, CertificateDer, CertificateRevocationListDer, CertificateSigningRequestDer,
-    EchConfigListBytes, PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer, PrivateSec1KeyDer,
-    SubjectPublicKeyInfoDer,
+    CertificateDer, CertificateRevocationListDer, CertificateSigningRequestDer, EchConfigListBytes,
+    PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer, PrivateSec1KeyDer,
+    SubjectPublicKeyInfoDer, pem,
 };
 
 #[test]
