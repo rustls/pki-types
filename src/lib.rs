@@ -327,7 +327,7 @@ impl PrivatePkcs1KeyDer<'_> {
 #[cfg(feature = "alloc")]
 impl zeroize::Zeroize for PrivatePkcs1KeyDer<'static> {
     fn zeroize(&mut self) {
-        self.0 .0.zeroize()
+        self.0.0.zeroize()
     }
 }
 
@@ -394,7 +394,7 @@ impl PrivateSec1KeyDer<'_> {
 #[cfg(feature = "alloc")]
 impl zeroize::Zeroize for PrivateSec1KeyDer<'static> {
     fn zeroize(&mut self) {
-        self.0 .0.zeroize()
+        self.0.0.zeroize()
     }
 }
 
@@ -462,7 +462,7 @@ impl PrivatePkcs8KeyDer<'_> {
 #[cfg(feature = "alloc")]
 impl zeroize::Zeroize for PrivatePkcs8KeyDer<'static> {
     fn zeroize(&mut self) {
-        self.0 .0.zeroize()
+        self.0.0.zeroize()
     }
 }
 
@@ -714,7 +714,7 @@ impl CertificateDer<'_> {
     /// Converts this certificate into its owned variant, unfreezing borrowed content (if any)
     #[cfg(feature = "alloc")]
     pub fn into_owned(self) -> CertificateDer<'static> {
-        CertificateDer(Der(self.0 .0.into_owned()))
+        CertificateDer(Der(self.0.0.into_owned()))
     }
 }
 
@@ -777,7 +777,7 @@ impl SubjectPublicKeyInfoDer<'_> {
     /// Converts this SubjectPublicKeyInfo into its owned variant, unfreezing borrowed content (if any)
     #[cfg(feature = "alloc")]
     pub fn into_owned(self) -> SubjectPublicKeyInfoDer<'static> {
-        SubjectPublicKeyInfoDer(Der(self.0 .0.into_owned()))
+        SubjectPublicKeyInfoDer(Der(self.0.0.into_owned()))
     }
 }
 
