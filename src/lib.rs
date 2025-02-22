@@ -969,6 +969,41 @@ impl UnixTime {
     }
 }
 
+/// A unique certificate identifier used for Automated Certificate Management Environment (ACME)
+/// renewal information (ARI)
+///
+/// This type can be constructed with information extracted from an X.509 certificate in order
+/// to identify it uniquely for a [RFC 8555] ACME order replacing it. For this purpose the
+/// `AcmeRenewalInfoCertIdentifier.authority_key_identifier()` and
+/// `AcmeRenewalInfoCertIdentifier.serial()` data must be BASE64 URL encoded and used to construct
+/// a URL.
+///
+/// See [draft-ietf-acme-ari-07 Section 4.1] for more information.
+///
+/// [RFC 8555]: <https://datatracker.ietf.org/doc/html/rfc8555>
+/// [draft-ietf-acme-ari-07 Section 4.1]: <https://www.ietf.org/archive/id/draft-ietf-acme-ari-07.html#section-4.1>
+#[derive(Clone, Eq, PartialEq)]
+pub struct AcmeRenewalInfoCertIdentifier<'a> {
+    /// The identified certificate's authority key identifier (AKI) extension's DER encoded ASN.1
+    /// octet string value
+    pub authority_key_identifier: Der<'a>,
+
+    /// The identified certificate's DER encoded ASN.1 serial number
+    pub serial: Der<'a>,
+}
+
+impl AcmeRenewalInfoCertIdentifier<'_> {
+    /// Converts this `AcmeRenewalInfoCertIdentifier` into its owned variant, unfreezing borrowed
+    /// content (if any)
+    #[cfg(feature = "alloc")]
+    pub fn into_owned(self) -> AcmeRenewalInfoCertIdentifier<'static> {
+        AcmeRenewalInfoCertIdentifier {
+            authority_key_identifier: Der(self.authority_key_identifier.0.into_owned()),
+            serial: Der(self.serial.0.into_owned()),
+        }
+    }
+}
+
 /// DER-encoded data, either owned or borrowed
 ///
 /// This wrapper type is used to represent DER-encoded data in a way that is agnostic to whether
