@@ -548,7 +548,7 @@ mod parser {
     }
 
     impl<'a> Parser<'a> {
-        pub(super) fn new(input: &'a [u8]) -> Self {
+        pub(super) const fn new(input: &'a [u8]) -> Self {
             Parser { state: input }
         }
 
