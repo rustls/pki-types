@@ -107,7 +107,7 @@ pub struct ReadIter<R, T> {
 #[cfg(feature = "std")]
 impl<R: io::BufRead, T: PemObject> ReadIter<R, T> {
     /// Create a new iterator.
-    pub fn new(rd: R) -> Self {
+    pub const fn new(rd: R) -> Self {
         Self {
             rd,
             _ty: PhantomData,
@@ -141,7 +141,7 @@ pub struct SliceIter<'a, T> {
 
 impl<'a, T: PemObject> SliceIter<'a, T> {
     /// Create a new iterator.
-    pub fn new(current: &'a [u8]) -> Self {
+    pub const fn new(current: &'a [u8]) -> Self {
         Self {
             current,
             _ty: PhantomData,
@@ -153,7 +153,7 @@ impl<'a, T: PemObject> SliceIter<'a, T> {
     /// This is the slice immediately following the most
     /// recently returned item from `next()`.
     #[doc(hidden)]
-    pub fn remainder(&self) -> &'a [u8] {
+    pub const fn remainder(&self) -> &'a [u8] {
         self.current
     }
 }
@@ -371,7 +371,7 @@ pub enum SectionKind {
 }
 
 impl SectionKind {
-    fn secret(&self) -> bool {
+    const fn secret(&self) -> bool {
         match self {
             Self::RsaPrivateKey | Self::PrivateKey | Self::EcPrivateKey => true,
             Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr | Self::EchConfigList => {
