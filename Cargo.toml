@@ -2,7 +2,7 @@
 name = "rustls-pki-types"
 version = "1.11.0"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.63"
 license = "MIT OR Apache-2.0"
 description = "Shared types for the rustls PKI ecosystem"
 documentation = "https://docs.rs/rustls-pki-types"
