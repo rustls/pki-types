@@ -194,3 +194,8 @@ jobs:
                 jq --slurp --raw-output '.[] | select(.reason == "compiler-artifact") | select(.target.name == "rustls_pki_types") | select(.profile.test) | .executable')
           valgrind --error-exitcode=99 --exit-on-first-error=yes $exe
 
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: EmbarkStudios/cargo-deny-action@v2
