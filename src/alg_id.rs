@@ -8,6 +8,42 @@ use core::ops::Deref;
 
 // See src/data/README.md.
 
+/// AlgorithmIdentifier for `id-ml-dsa-44`.
+///
+/// This is:
+///
+/// ```text
+/// OBJECT_IDENTIFIER { 2.16.840.1.101.3.4.3.17 }
+/// ```
+///
+/// <https://www.ietf.org/archive/id/draft-ietf-lamps-dilithium-certificates-07.html#name-identifiers>
+pub const ML_DSA_44: AlgorithmIdentifier =
+    AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ml-dsa-44.der"));
+
+/// AlgorithmIdentifier for `id-ml-dsa-65`.
+///
+/// This is:
+///
+/// ```text
+/// OBJECT_IDENTIFIER { 2.16.840.1.101.3.4.3.18 }
+/// ```
+///
+/// <https://www.ietf.org/archive/id/draft-ietf-lamps-dilithium-certificates-07.html#name-identifiers>
+pub const ML_DSA_65: AlgorithmIdentifier =
+    AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ml-dsa-65.der"));
+
+/// AlgorithmIdentifier for `id-ml-dsa-87`.
+///
+/// This is:
+///
+/// ```text
+/// OBJECT_IDENTIFIER { 2.16.840.1.101.3.4.3.19 }
+/// ```
+///
+/// <https://www.ietf.org/archive/id/draft-ietf-lamps-dilithium-certificates-07.html#name-identifiers>
+pub const ML_DSA_87: AlgorithmIdentifier =
+    AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ml-dsa-87.der"));
+
 /// AlgorithmIdentifier for `id-ecPublicKey` with named curve `secp256r1`.
 ///
 /// This is:
