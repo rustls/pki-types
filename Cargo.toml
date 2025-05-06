@@ -28,3 +28,6 @@ web-time = { version = "1", optional = true }
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo_check_external_types]
+allowed_external_types = ["zeroize::Zeroize"]
