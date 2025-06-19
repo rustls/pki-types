@@ -371,7 +371,7 @@ pub enum SectionKind {
 }
 
 impl SectionKind {
-    fn secret(&self) -> bool {
+    const fn secret(&self) -> bool {
         match self {
             Self::RsaPrivateKey | Self::PrivateKey | Self::EcPrivateKey => true,
             Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr | Self::EchConfigList => {
