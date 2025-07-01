@@ -1068,7 +1068,7 @@ fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>
         if i == 0 {
             write!(f, "0x")?;
         }
-        write!(f, "{:02x}", b)?;
+        write!(f, "{b:02x}")?;
     }
     Ok(())
 }
@@ -1080,13 +1080,13 @@ mod tests {
     #[test]
     fn der_debug() {
         let der = Der::from_slice(&[0x01, 0x02, 0x03]);
-        assert_eq!(format!("{:?}", der), "0x010203");
+        assert_eq!(format!("{der:?}"), "0x010203");
     }
 
     #[test]
     fn alg_id_debug() {
         let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
-        assert_eq!(format!("{:?}", alg_id), "0x010203");
+        assert_eq!(format!("{alg_id:?}"), "0x010203");
     }
 
     #[test]

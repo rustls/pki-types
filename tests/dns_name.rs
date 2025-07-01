@@ -401,8 +401,7 @@ fn dns_name_ref_try_from_ascii_test() {
         assert_eq!(
             DnsName::try_from(s).is_ok(),
             is_valid,
-            "DnsNameRef::try_from_ascii_str failed for \"{:?}\"",
-            s
+            "DnsNameRef::try_from_ascii_str failed for \"{s:?}\""
         );
     }
 }
