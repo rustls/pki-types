@@ -166,6 +166,12 @@ impl From<std::net::Ipv6Addr> for ServerName<'_> {
     }
 }
 
+impl<'a> From<DnsName<'a>> for ServerName<'a> {
+    fn from(dns_name: DnsName<'a>) -> Self {
+        Self::DnsName(dns_name)
+    }
+}
+
 /// A type which encapsulates a string (borrowed or owned) that is a syntactically valid DNS name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DnsName<'a>(DnsNameInner<'a>);
