@@ -959,12 +959,12 @@ impl UnixTime {
     /// Convert a `Duration` since the start of 1970 to a `UnixTime`
     ///
     /// The `duration` must be relative to the Unix epoch.
-    pub fn since_unix_epoch(duration: Duration) -> Self {
+    pub const fn since_unix_epoch(duration: Duration) -> Self {
         Self(duration.as_secs())
     }
 
     /// Number of seconds since the Unix epoch
-    pub fn as_secs(&self) -> u64 {
+    pub const fn as_secs(&self) -> u64 {
         self.0
     }
 }
