@@ -1,4 +1,3 @@
-use alloc::borrow::ToOwned;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec;
@@ -193,7 +192,7 @@ impl PemObject for (SectionKind, Vec<u8>) {
 #[allow(clippy::type_complexity)]
 fn from_slice(mut input: &[u8]) -> Result<Option<((SectionKind, Vec<u8>), &[u8])>, Error> {
     let mut b64buf = Vec::with_capacity(1024);
-    let mut section = None::<(Vec<_>, Vec<_>)>;
+    let mut section = None;
 
     loop {
         let next_line = if let Some(index) = input
@@ -226,7 +225,7 @@ fn from_slice(mut input: &[u8]) -> Result<Option<((SectionKind, Vec<u8>), &[u8])
 #[cfg(feature = "std")]
 pub fn from_buf(rd: &mut dyn io::BufRead) -> Result<Option<(SectionKind, Vec<u8>)>, Error> {
     let mut b64buf = Vec::with_capacity(1024);
-    let mut section = None::<(Vec<_>, Vec<_>)>;
+    let mut section = None;
     let mut line = Vec::with_capacity(80);
 
     loop {
@@ -250,7 +249,7 @@ pub fn from_buf(rd: &mut dyn io::BufRead) -> Result<Option<(SectionKind, Vec<u8>
 #[allow(clippy::type_complexity)]
 fn read(
     next_line: Option<&[u8]>,
-    section: &mut Option<(Vec<u8>, Vec<u8>)>,
+    section: &mut Option<(SectionLabel, Vec<u8>)>,
     b64buf: &mut Vec<u8>,
 ) -> Result<ControlFlow<Option<(SectionKind, Vec<u8>)>, ()>, Error> {
     let line = if let Some(line) = next_line {
@@ -283,20 +282,21 @@ fn read(
         }
 
         let ty = &line[11..pos];
+        let label = SectionLabel::from(ty);
         let mut end = Vec::with_capacity(10 + 4 + ty.len());
         end.extend_from_slice(b"-----END ");
         end.extend_from_slice(ty);
         end.extend_from_slice(b"-----");
-        *section = Some((ty.to_owned(), end));
+        *section = Some((label, end));
         return Ok(ControlFlow::Continue(()));
     }
 
-    if let Some((section_label, end_marker)) = section.as_ref() {
+    if let Some((label, end_marker)) = section.as_ref() {
         if line.starts_with(end_marker) {
-            let kind = match SectionKind::try_from(&section_label[..]) {
-                Ok(kind) => kind,
+            let kind = match label {
+                SectionLabel::Known(kind) => *kind,
                 // unhandled section: have caller try again
-                Err(()) => {
+                SectionLabel::Unknown => {
                     *section = None;
                     b64buf.clear();
                     return Ok(ControlFlow::Continue(()));
@@ -322,6 +322,20 @@ fn read(
     }
 
     Ok(ControlFlow::Continue(()))
+}
+
+enum SectionLabel {
+    Known(SectionKind),
+    Unknown,
+}
+
+impl From<&[u8]> for SectionLabel {
+    fn from(value: &[u8]) -> Self {
+        match SectionKind::try_from(value) {
+            Ok(kind) => Self::Known(kind),
+            Err(_) => Self::Unknown,
+        }
+    }
 }
 
 /// A single recognised section in a PEM file.
