@@ -97,6 +97,8 @@ impl<T: PemObjectFilter + From<Vec<u8>>> PemObject for T {
 pub struct ReadIter<R, T> {
     rd: R,
     _ty: PhantomData<T>,
+    line: Vec<u8>,
+    b64_buf: Vec<u8>,
 }
 
 #[cfg(feature = "std")]
@@ -106,6 +108,8 @@ impl<R: io::BufRead, T: PemObject> ReadIter<R, T> {
         Self {
             rd,
             _ty: PhantomData,
+            line: Vec::with_capacity(80),
+            b64_buf: Vec::with_capacity(1024),
         }
     }
 }
@@ -116,7 +120,8 @@ impl<R: io::BufRead, T: PemObject> Iterator for ReadIter<R, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            return match from_buf(&mut self.rd) {
+            self.b64_buf.clear();
+            return match from_buf_inner(&mut self.rd, &mut self.line, &mut self.b64_buf) {
                 Ok(Some((sec, item))) => match T::from_pem(sec, item) {
                     Some(res) => Some(Ok(res)),
                     None => continue,
@@ -221,12 +226,20 @@ fn from_slice(mut input: &[u8]) -> Result<Option<((SectionKind, Vec<u8>), &[u8])
 #[cfg(feature = "std")]
 pub fn from_buf(rd: &mut dyn io::BufRead) -> Result<Option<(SectionKind, Vec<u8>)>, Error> {
     let mut b64buf = Vec::with_capacity(1024);
-    let mut section = None;
     let mut line = Vec::with_capacity(80);
+    from_buf_inner(rd, &mut line, &mut b64buf)
+}
 
+#[cfg(feature = "std")]
+fn from_buf_inner(
+    rd: &mut dyn io::BufRead,
+    line: &mut Vec<u8>,
+    b64buf: &mut Vec<u8>,
+) -> Result<Option<(SectionKind, Vec<u8>)>, Error> {
+    let mut section = None;
     loop {
         line.clear();
-        let len = read_until_newline(rd, &mut line).map_err(Error::Io)?;
+        let len = read_until_newline(rd, line).map_err(Error::Io)?;
 
         let next_line = if len == 0 {
             None
@@ -234,7 +247,7 @@ pub fn from_buf(rd: &mut dyn io::BufRead) -> Result<Option<(SectionKind, Vec<u8>
             Some(line.as_slice())
         };
 
-        match read(next_line, &mut section, &mut b64buf) {
+        match read(next_line, &mut section, b64buf) {
             Ok(ControlFlow::Break(opt)) => return Ok(opt),
             Ok(ControlFlow::Continue(())) => continue,
             Err(e) => return Err(e),
