@@ -27,10 +27,7 @@ pub trait PemObject: Sized {
     /// Iterate over all sections of this type from PEM contained in
     /// a byte slice.
     fn pem_slice_iter(pem: &[u8]) -> SliceIter<'_, Self> {
-        SliceIter {
-            current: pem,
-            _ty: PhantomData,
-        }
+        SliceIter::new(pem)
     }
 
     /// Decode the first section of this type from the PEM contents of the named file.
