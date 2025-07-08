@@ -53,10 +53,9 @@ pub trait PemObject: Sized {
     fn pem_file_iter(
         file_name: impl AsRef<std::path::Path>,
     ) -> Result<ReadIter<io::BufReader<File>, Self>, Error> {
-        Ok(ReadIter::<_, Self> {
-            rd: io::BufReader::new(File::open(file_name).map_err(Error::Io)?),
-            _ty: PhantomData,
-        })
+        Ok(ReadIter::new(io::BufReader::new(
+            File::open(file_name).map_err(Error::Io)?,
+        )))
     }
 
     /// Decode the first section of this type from PEM read from an [`io::Read`].
@@ -70,10 +69,7 @@ pub trait PemObject: Sized {
     /// Iterate over all sections of this type from PEM present in an [`io::Read`].
     #[cfg(feature = "std")]
     fn pem_reader_iter<R: std::io::Read>(rd: R) -> ReadIter<io::BufReader<R>, Self> {
-        ReadIter::<_, Self> {
-            rd: io::BufReader::new(rd),
-            _ty: PhantomData,
-        }
+        ReadIter::new(io::BufReader::new(rd))
     }
 
     /// Conversion from a PEM [`SectionKind`] and body data.
