@@ -148,6 +148,40 @@ impl<'a, T: PemObject> SliceIter<'a, T> {
         }
     }
 
+    /// Extract and decode the next supported PEM section from `input`
+    ///
+    /// - `Ok(None)` is returned if there is no PEM section to read from `input`
+    /// - Syntax errors and decoding errors produce a `Err(...)`
+    /// - Otherwise each decoded section is returned with a `Ok(Some((..., remainder)))` where
+    ///   `remainder` is the part of the `input` that follows the returned section
+    fn read_section(&mut self) -> Result<Option<(SectionKind, Vec<u8>)>, Error> {
+        let mut b64buf = Vec::with_capacity(1024);
+        let mut section = None;
+
+        loop {
+            let next_line = if let Some(index) = self
+                .current
+                .iter()
+                .position(|byte| *byte == b'\n' || *byte == b'\r')
+            {
+                let (line, newline_plus_remainder) = self.current.split_at(index);
+                self.current = &newline_plus_remainder[1..];
+                Some(line)
+            } else if !self.current.is_empty() {
+                let next_line = self.current;
+                self.current = &[];
+                Some(next_line)
+            } else {
+                None
+            };
+
+            match read(next_line, &mut section, &mut b64buf)? {
+                ControlFlow::Continue(()) => continue,
+                ControlFlow::Break(item) => return Ok(item),
+            }
+        }
+    }
+
     /// Returns the rest of the unparsed data.
     ///
     /// This is the slice immediately following the most
@@ -163,14 +197,11 @@ impl<T: PemObject> Iterator for SliceIter<'_, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            return match from_slice(self.current) {
-                Ok(Some(((sec, item), rest))) => {
-                    self.current = rest;
-                    match T::from_pem(sec, item) {
-                        Some(res) => Some(Ok(res)),
-                        None => continue,
-                    }
-                }
+            return match self.read_section() {
+                Ok(Some((sec, item))) => match T::from_pem(sec, item) {
+                    Some(res) => Some(Ok(res)),
+                    None => continue,
+                },
                 Ok(None) => return None,
                 Err(err) => Some(Err(err)),
             };
@@ -181,40 +212,6 @@ impl<T: PemObject> Iterator for SliceIter<'_, T> {
 impl PemObject for (SectionKind, Vec<u8>) {
     fn from_pem(kind: SectionKind, der: Vec<u8>) -> Option<Self> {
         Some((kind, der))
-    }
-}
-
-/// Extract and decode the next supported PEM section from `input`
-///
-/// - `Ok(None)` is returned if there is no PEM section to read from `input`
-/// - Syntax errors and decoding errors produce a `Err(...)`
-/// - Otherwise each decoded section is returned with a `Ok(Some((..., remainder)))` where
-///   `remainder` is the part of the `input` that follows the returned section
-#[allow(clippy::type_complexity)]
-fn from_slice(mut input: &[u8]) -> Result<Option<((SectionKind, Vec<u8>), &[u8])>, Error> {
-    let mut b64buf = Vec::with_capacity(1024);
-    let mut section = None;
-
-    loop {
-        let next_line = if let Some(index) = input
-            .iter()
-            .position(|byte| *byte == b'\n' || *byte == b'\r')
-        {
-            let (line, newline_plus_remainder) = input.split_at(index);
-            input = &newline_plus_remainder[1..];
-            Some(line)
-        } else if !input.is_empty() {
-            let next_line = input;
-            input = &[];
-            Some(next_line)
-        } else {
-            None
-        };
-
-        match read(next_line, &mut section, &mut b64buf)? {
-            ControlFlow::Continue(()) => continue,
-            ControlFlow::Break(item) => return Ok(item.map(|item| (item, input))),
-        }
     }
 }
 
