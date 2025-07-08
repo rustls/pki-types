@@ -134,6 +134,7 @@ impl<R: io::BufRead, T: PemObject> Iterator for ReadIter<R, T> {
 pub struct SliceIter<'a, T> {
     current: &'a [u8],
     _ty: PhantomData<T>,
+    b64_buf: Vec<u8>,
 }
 
 impl<'a, T: PemObject> SliceIter<'a, T> {
@@ -142,6 +143,7 @@ impl<'a, T: PemObject> SliceIter<'a, T> {
         Self {
             current,
             _ty: PhantomData,
+            b64_buf: Vec::with_capacity(1024),
         }
     }
 
@@ -152,9 +154,8 @@ impl<'a, T: PemObject> SliceIter<'a, T> {
     /// - Otherwise each decoded section is returned with a `Ok(Some((..., remainder)))` where
     ///   `remainder` is the part of the `input` that follows the returned section
     fn read_section(&mut self) -> Result<Option<(SectionKind, Vec<u8>)>, Error> {
-        let mut b64buf = Vec::with_capacity(1024);
+        self.b64_buf.clear();
         let mut section = None;
-
         loop {
             let next_line = if let Some(index) = self
                 .current
@@ -172,7 +173,7 @@ impl<'a, T: PemObject> SliceIter<'a, T> {
                 None
             };
 
-            match read(next_line, &mut section, &mut b64buf)? {
+            match read(next_line, &mut section, &mut self.b64_buf)? {
                 ControlFlow::Continue(()) => continue,
                 ControlFlow::Break(item) => return Ok(item),
             }
