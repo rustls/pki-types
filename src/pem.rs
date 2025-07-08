@@ -249,7 +249,7 @@ pub fn from_buf(rd: &mut dyn io::BufRead) -> Result<Option<(SectionKind, Vec<u8>
 #[allow(clippy::type_complexity)]
 fn read(
     next_line: Option<&[u8]>,
-    section: &mut Option<(SectionLabel, Vec<u8>)>,
+    section: &mut Option<SectionLabel>,
     b64buf: &mut Vec<u8>,
 ) -> Result<ControlFlow<Option<(SectionKind, Vec<u8>)>, ()>, Error> {
     let line = if let Some(line) = next_line {
@@ -257,7 +257,9 @@ fn read(
     } else {
         // EOF
         return match section.take() {
-            Some((_, end_marker)) => Err(Error::MissingSectionEnd { end_marker }),
+            Some(label) => Err(Error::MissingSectionEnd {
+                end_marker: label.as_ref().to_vec(),
+            }),
             None => Ok(ControlFlow::Break(None)),
         };
     };
@@ -282,21 +284,16 @@ fn read(
         }
 
         let ty = &line[11..pos];
-        let label = SectionLabel::from(ty);
-        let mut end = Vec::with_capacity(10 + 4 + ty.len());
-        end.extend_from_slice(b"-----END ");
-        end.extend_from_slice(ty);
-        end.extend_from_slice(b"-----");
-        *section = Some((label, end));
+        *section = Some(SectionLabel::from(ty));
         return Ok(ControlFlow::Continue(()));
     }
 
-    if let Some((label, end_marker)) = section.as_ref() {
-        if line.starts_with(end_marker) {
+    if let Some(label) = section.as_ref() {
+        if label.is_end(line) {
             let kind = match label {
                 SectionLabel::Known(kind) => *kind,
                 // unhandled section: have caller try again
-                SectionLabel::Unknown => {
+                SectionLabel::Unknown(_) => {
                     *section = None;
                     b64buf.clear();
                     return Ok(ControlFlow::Continue(()));
@@ -326,14 +323,44 @@ fn read(
 
 enum SectionLabel {
     Known(SectionKind),
-    Unknown,
+    Unknown(Vec<u8>),
+}
+
+impl SectionLabel {
+    fn is_end(&self, line: &[u8]) -> bool {
+        let rest = match line.strip_prefix(b"-----END ") {
+            Some(rest) => rest,
+            None => return false,
+        };
+
+        let ty = match self {
+            Self::Known(kind) => kind.as_slice(),
+            Self::Unknown(ty) => ty,
+        };
+
+        let rest = match rest.strip_prefix(ty) {
+            Some(rest) => rest,
+            None => return false,
+        };
+
+        rest.starts_with(b"-----")
+    }
 }
 
 impl From<&[u8]> for SectionLabel {
     fn from(value: &[u8]) -> Self {
         match SectionKind::try_from(value) {
             Ok(kind) => Self::Known(kind),
-            Err(_) => Self::Unknown,
+            Err(_) => Self::Unknown(value.to_vec()),
+        }
+    }
+}
+
+impl AsRef<[u8]> for SectionLabel {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            Self::Known(kind) => kind.as_slice(),
+            Self::Unknown(ty) => ty,
         }
     }
 }
@@ -391,6 +418,19 @@ impl SectionKind {
             Self::Certificate | Self::PublicKey | Self::Crl | Self::Csr | Self::EchConfigList => {
                 false
             }
+        }
+    }
+
+    fn as_slice(&self) -> &'static [u8] {
+        match self {
+            Self::Certificate => b"CERTIFICATE",
+            Self::PublicKey => b"PUBLIC KEY",
+            Self::RsaPrivateKey => b"RSA PRIVATE KEY",
+            Self::PrivateKey => b"PRIVATE KEY",
+            Self::EcPrivateKey => b"EC PRIVATE KEY",
+            Self::Crl => b"X509 CRL",
+            Self::Csr => b"CERTIFICATE REQUEST",
+            Self::EchConfigList => b"ECHCONFIG",
         }
     }
 }
