@@ -3,9 +3,15 @@ use rustls_pki_types::PrivateKeyDer;
 #[test]
 fn test_private_key_from_der() {
     const NIST_P256_KEY_SEC1: &[u8] = include_bytes!("../tests/keys/nistp256key.der");
+    const ECDSA_P256K1_KEY_SEC1: &[u8] = include_bytes!("../tests/keys/ecdsap256k1key.der");
     const NIST_P384_KEY_SEC1: &[u8] = include_bytes!("../tests/keys/nistp384key.der");
     const NIST_P521_KEY_SEC1: &[u8] = include_bytes!("../tests/keys/nistp521key.der");
-    for bytes in [NIST_P256_KEY_SEC1, NIST_P384_KEY_SEC1, NIST_P521_KEY_SEC1] {
+    for bytes in [
+        NIST_P256_KEY_SEC1,
+        ECDSA_P256K1_KEY_SEC1,
+        NIST_P384_KEY_SEC1,
+        NIST_P521_KEY_SEC1,
+    ] {
         assert!(matches!(
             PrivateKeyDer::try_from(bytes).unwrap(),
             PrivateKeyDer::Sec1(_)
@@ -19,6 +25,7 @@ fn test_private_key_from_der() {
     ));
 
     const NIST_P256_KEY_PKCS8: &[u8] = include_bytes!("../tests/keys/nistp256key.pkcs8.der");
+    const ECDSA_P256K1_KEY_PKCS8: &[u8] = include_bytes!("../tests/keys/ecdsap256k1key.pkcs8.der");
     const NIST_P384_KEY_PKCS8: &[u8] = include_bytes!("../tests/keys/nistp384key.pkcs8.der");
     const NIST_P521_KEY_PKCS8: &[u8] = include_bytes!("../tests/keys/nistp521key.pkcs8.der");
     const RSA_2048_KEY_PKCS8: &[u8] = include_bytes!("../tests/keys/rsa2048key.pkcs8.der");
@@ -27,6 +34,7 @@ fn test_private_key_from_der() {
     const ED448_KEY: &[u8] = include_bytes!("../tests/keys/ed448.pkcs8.der");
     const PKCS8_KEYS: &[&[u8]] = &[
         NIST_P256_KEY_PKCS8,
+        ECDSA_P256K1_KEY_PKCS8,
         NIST_P384_KEY_PKCS8,
         NIST_P521_KEY_PKCS8,
         RSA_2048_KEY_PKCS8,
