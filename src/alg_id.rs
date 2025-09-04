@@ -44,6 +44,19 @@ pub const ML_DSA_65: AlgorithmIdentifier =
 pub const ML_DSA_87: AlgorithmIdentifier =
     AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ml-dsa-87.der"));
 
+/// AlgorithmIdentifier for `id-ecPublicKey` with named curve `secp256k1`.
+///
+/// This is:
+///
+/// ```text
+/// # ecPublicKey
+/// OBJECT_IDENTIFIER { 1.2.840.10045.2.1 }
+/// # secp256k1
+/// OBJECT_IDENTIFIER { 1.3.132.0.10 }
+/// ```
+pub const ECDSA_P256K1: AlgorithmIdentifier =
+    AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ecdsa-p256k1.der"));
+
 /// AlgorithmIdentifier for `id-ecPublicKey` with named curve `secp256r1`.
 ///
 /// This is:
