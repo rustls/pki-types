@@ -307,6 +307,17 @@ pub const RSA_PSS_SHA512: AlgorithmIdentifier =
 pub const ED25519: AlgorithmIdentifier =
     AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ed25519.der"));
 
+/// AlgorithmIdentifier for `ED448`.
+///
+/// This is:
+///
+/// ```text
+/// # ed448
+/// OBJECT_IDENTIFIER { 1.3.101.113 }
+/// ```
+pub const ED448: AlgorithmIdentifier =
+    AlgorithmIdentifier::from_slice(include_bytes!("data/alg-ed448.der"));
+
 /// A DER encoding of the PKIX AlgorithmIdentifier type:
 ///
 /// ```ASN.1

@@ -24,6 +24,7 @@ fn test_private_key_from_der() {
     const RSA_2048_KEY_PKCS8: &[u8] = include_bytes!("../tests/keys/rsa2048key.pkcs8.der");
     const RSA_4096_KEY: &[u8] = include_bytes!("../tests/keys/rsa4096key.pkcs8.der");
     const ED25519_KEY: &[u8] = include_bytes!("../tests/keys/edd25519_v2.der");
+    const ED448_KEY: &[u8] = include_bytes!("../tests/keys/ed448.pkcs8.der");
     const PKCS8_KEYS: &[&[u8]] = &[
         NIST_P256_KEY_PKCS8,
         NIST_P384_KEY_PKCS8,
@@ -31,6 +32,7 @@ fn test_private_key_from_der() {
         RSA_2048_KEY_PKCS8,
         RSA_4096_KEY,
         ED25519_KEY,
+        ED448_KEY,
     ];
 
     for &bytes in PKCS8_KEYS {
