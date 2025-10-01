@@ -1074,6 +1074,13 @@ impl<T> AsRef<[T]> for CowSlice<'_, T> {
     }
 }
 
+impl<T> Deref for CowSlice<'_, T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
 impl<T: PartialEq> PartialEq for CowSlice<'_, T> {
     fn eq(&self, other: &Self) -> bool {
         self.as_ref() == other.as_ref()
