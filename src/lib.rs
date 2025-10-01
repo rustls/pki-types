@@ -338,14 +338,14 @@ impl PemObjectFilter for PrivatePkcs1KeyDer<'static> {
 
 impl<'a> From<&'a [u8]> for PrivatePkcs1KeyDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(Der(BytesInner::Borrowed(slice)))
+        Self(Der(CowSlice::Borrowed(slice)))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Vec<u8>> for PrivatePkcs1KeyDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Der(BytesInner::Owned(vec)))
+        Self(Der(CowSlice::Owned(vec)))
     }
 }
 
@@ -405,14 +405,14 @@ impl PemObjectFilter for PrivateSec1KeyDer<'static> {
 
 impl<'a> From<&'a [u8]> for PrivateSec1KeyDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(Der(BytesInner::Borrowed(slice)))
+        Self(Der(CowSlice::Borrowed(slice)))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Vec<u8>> for PrivateSec1KeyDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Der(BytesInner::Owned(vec)))
+        Self(Der(CowSlice::Owned(vec)))
     }
 }
 
@@ -473,14 +473,14 @@ impl PemObjectFilter for PrivatePkcs8KeyDer<'static> {
 
 impl<'a> From<&'a [u8]> for PrivatePkcs8KeyDer<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(Der(BytesInner::Borrowed(slice)))
+        Self(Der(CowSlice::Borrowed(slice)))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Vec<u8>> for PrivatePkcs8KeyDer<'_> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Der(BytesInner::Owned(vec)))
+        Self(Der(CowSlice::Owned(vec)))
     }
 }
 
@@ -784,7 +784,7 @@ impl SubjectPublicKeyInfoDer<'_> {
 /// A TLS-encoded Encrypted Client Hello (ECH) configuration list (`ECHConfigList`); as specified in
 /// [draft-ietf-tls-esni-18 §4](https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-18#section-4)
 #[derive(Clone, Eq, PartialEq)]
-pub struct EchConfigListBytes<'a>(BytesInner<'a>);
+pub struct EchConfigListBytes<'a>(CowSlice<'a, u8>);
 
 impl EchConfigListBytes<'_> {
     /// Converts this config into its owned variant, unfreezing borrowed content (if any)
@@ -865,14 +865,14 @@ impl Deref for EchConfigListBytes<'_> {
 
 impl<'a> From<&'a [u8]> for EchConfigListBytes<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(BytesInner::Borrowed(slice))
+        Self(CowSlice::Borrowed(slice))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Vec<u8>> for EchConfigListBytes<'_> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(BytesInner::Owned(vec))
+        Self(CowSlice::Owned(vec))
     }
 }
 
@@ -975,12 +975,12 @@ impl UnixTime {
 /// the data is owned (by a `Vec<u8>`) or borrowed (by a `&[u8]`). Support for the owned
 /// variant is only available when the `alloc` feature is enabled.
 #[derive(Clone, Eq, PartialEq)]
-pub struct Der<'a>(BytesInner<'a>);
+pub struct Der<'a>(CowSlice<'a, u8>);
 
 impl<'a> Der<'a> {
     /// A const constructor to create a `Der` from a borrowed slice
     pub const fn from_slice(der: &'a [u8]) -> Self {
-        Self(BytesInner::Borrowed(der))
+        Self(CowSlice::Borrowed(der))
     }
 }
 
@@ -1000,14 +1000,14 @@ impl Deref for Der<'_> {
 
 impl<'a> From<&'a [u8]> for Der<'a> {
     fn from(slice: &'a [u8]) -> Self {
-        Self(BytesInner::Borrowed(slice))
+        Self(CowSlice::Borrowed(slice))
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Vec<u8>> for Der<'static> {
     fn from(vec: Vec<u8>) -> Self {
-        Self(BytesInner::Owned(vec))
+        Self(CowSlice::Owned(vec))
     }
 }
 
@@ -1017,17 +1017,20 @@ impl fmt::Debug for Der<'_> {
     }
 }
 
+/// A [`Cow`][alloc::borrow::Cow]-like, but limited to sequences of T values.
 #[derive(Debug, Clone)]
-enum BytesInner<'a> {
+pub enum CowSlice<'a, T> {
+    /// An owned `Vec` of values.
     #[cfg(feature = "alloc")]
-    Owned(Vec<u8>),
-    Borrowed(&'a [u8]),
+    Owned(Vec<T>),
+    /// A borrowed slice of values.
+    Borrowed(&'a [T]),
 }
 
 #[cfg(feature = "alloc")]
-impl BytesInner<'_> {
-    fn into_owned(self) -> BytesInner<'static> {
-        BytesInner::Owned(match self {
+impl<T: Clone> CowSlice<'_, T> {
+    fn into_owned(self) -> CowSlice<'static, T> {
+        CowSlice::Owned(match self {
             Self::Owned(vec) => vec,
             Self::Borrowed(slice) => slice.to_vec(),
         })
@@ -1035,32 +1038,32 @@ impl BytesInner<'_> {
 }
 
 #[cfg(feature = "alloc")]
-impl zeroize::Zeroize for BytesInner<'static> {
+impl zeroize::Zeroize for CowSlice<'static, u8> {
     fn zeroize(&mut self) {
         match self {
-            BytesInner::Owned(vec) => vec.zeroize(),
-            BytesInner::Borrowed(_) => (),
+            CowSlice::Owned(vec) => vec.zeroize(),
+            CowSlice::Borrowed(_) => (),
         }
     }
 }
 
-impl AsRef<[u8]> for BytesInner<'_> {
-    fn as_ref(&self) -> &[u8] {
+impl<T> AsRef<[T]> for CowSlice<'_, T> {
+    fn as_ref(&self) -> &[T] {
         match &self {
             #[cfg(feature = "alloc")]
-            BytesInner::Owned(vec) => vec.as_ref(),
-            BytesInner::Borrowed(slice) => slice,
+            CowSlice::Owned(vec) => vec.as_ref(),
+            CowSlice::Borrowed(slice) => slice,
         }
     }
 }
 
-impl PartialEq for BytesInner<'_> {
+impl<T: PartialEq> PartialEq for CowSlice<'_, T> {
     fn eq(&self, other: &Self) -> bool {
         self.as_ref() == other.as_ref()
     }
 }
 
-impl Eq for BytesInner<'_> {}
+impl<T: PartialEq> Eq for CowSlice<'_, T> {}
 
 // Format an iterator of u8 into a hex string
 fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>) -> fmt::Result {
@@ -1091,10 +1094,10 @@ mod tests {
 
     #[test]
     fn bytes_inner_equality() {
-        let owned_a = BytesInner::Owned(vec![1, 2, 3]);
-        let owned_b = BytesInner::Owned(vec![4, 5]);
-        let borrowed_a = BytesInner::Borrowed(&[1, 2, 3]);
-        let borrowed_b = BytesInner::Borrowed(&[99]);
+        let owned_a = CowSlice::Owned(vec![1, 2, 3]);
+        let owned_b = CowSlice::Owned(vec![4, 5]);
+        let borrowed_a = CowSlice::Borrowed(&[1, 2, 3]);
+        let borrowed_b = CowSlice::Borrowed(&[99]);
 
         // Self-equality.
         assert_eq!(owned_a, owned_a);
