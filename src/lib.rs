@@ -1029,6 +1029,23 @@ pub enum CowSlice<'a, T> {
 
 #[cfg(feature = "alloc")]
 impl<T: Clone> CowSlice<'_, T> {
+    /// Acquires a mutable reference to the owned form of the data.
+    ///
+    /// Clones the data if it is not already owned.
+    #[cfg(feature = "alloc")]
+    pub fn to_mut(&mut self) -> &mut Vec<T> {
+        let vec = match self {
+            Self::Owned(vec) => return vec,
+            Self::Borrowed(slice) => slice.to_vec(),
+        };
+
+        *self = Self::Owned(vec);
+        match self {
+            Self::Owned(vec) => vec,
+            Self::Borrowed(_) => unreachable!(),
+        }
+    }
+
     fn into_owned(self) -> CowSlice<'static, T> {
         CowSlice::Owned(match self {
             Self::Owned(vec) => vec,
