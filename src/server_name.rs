@@ -446,6 +446,12 @@ impl From<std::net::Ipv6Addr> for IpAddr {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Ipv4Addr([u8; 4]);
 
+impl From<[u8; 4]> for Ipv4Addr {
+    fn from(value: [u8; 4]) -> Self {
+        Self(value)
+    }
+}
+
 impl TryFrom<&str> for Ipv4Addr {
     type Error = AddrParseError;
 
