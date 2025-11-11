@@ -221,3 +221,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: EmbarkStudios/cargo-deny-action@v2
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Check if all files are included in package that would be published
+        run: |
+          cargo package --all-features
