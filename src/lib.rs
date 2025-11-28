@@ -63,7 +63,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unreachable_pub, clippy::use_self)]
 #![deny(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(rustls_pki_types_docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
