@@ -52,7 +52,7 @@ pub trait PemObject: Sized {
     ) -> Result<ReadIter<io::BufReader<File>, Self>, Error> {
         let file = File::open(file_name).map_err(Error::Io)?;
         if file.metadata().map_err(Error::Io)?.is_dir() {
-            return Err(Error::Io(io::Error::from(io::ErrorKind::IsADirectory)));
+            return Err(Error::IsDirectory);
         }
         Ok(ReadIter::new(io::BufReader::new(file)))
     }
@@ -484,6 +484,10 @@ pub enum Error {
 
     /// No items found of desired type
     NoItemsFound,
+
+    /// The path is a directory, not a file
+    #[cfg(feature = "std")]
+    IsDirectory,
 }
 
 impl fmt::Display for Error {
@@ -499,6 +503,8 @@ impl fmt::Display for Error {
             #[cfg(feature = "std")]
             Self::Io(e) => write!(f, "I/O error: {e}"),
             Self::NoItemsFound => write!(f, "no items found"),
+            #[cfg(feature = "std")]
+            Self::IsDirectory => write!(f, "path is a directory"),
         }
     }
 }
