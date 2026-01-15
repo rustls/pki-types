@@ -50,9 +50,11 @@ pub trait PemObject: Sized {
     fn pem_file_iter(
         file_name: impl AsRef<std::path::Path>,
     ) -> Result<ReadIter<io::BufReader<File>, Self>, Error> {
-        Ok(ReadIter::new(io::BufReader::new(
-            File::open(file_name).map_err(Error::Io)?,
-        )))
+        let file = File::open(file_name).map_err(Error::Io)?;
+        if file.metadata().map_err(Error::Io)?.is_dir() {
+            return Err(Error::Io(io::Error::from(io::ErrorKind::IsADirectory)));
+        }
+        Ok(ReadIter::new(io::BufReader::new(file)))
     }
 
     /// Decode the first section of this type from PEM read from an [`io::Read`].
