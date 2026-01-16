@@ -928,6 +928,14 @@ pub trait SignatureVerificationAlgorithm: Send + Sync + fmt::Debug {
     /// for signature verification.
     fn signature_alg_id(&self) -> AlgorithmIdentifier;
 
+    /// Return the FIPS status of this algorithm or implementation.
+    fn fips_status(&self) -> FipsStatus {
+        match self.fips() {
+            true => FipsStatus::Pending,
+            false => FipsStatus::Unvalidated,
+        }
+    }
+
     /// Return `true` if this is backed by a FIPS-approved implementation.
     fn fips(&self) -> bool {
         false
@@ -1073,6 +1081,22 @@ impl PartialEq for BytesInner<'_> {
 }
 
 impl Eq for BytesInner<'_> {}
+
+/// FIPS validation status of an algorithm or implementation.
+#[allow(clippy::exhaustive_enums)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum FipsStatus {
+    /// Not FIPS tested, or unapproved algorithm.
+    Unvalidated,
+    /// In queue for FIPS validation.
+    Pending,
+    /// FIPS certified, with named certificate.
+    #[non_exhaustive]
+    Certified {
+        /// A name, number or URL referencing the FIPS certificate.
+        certificate: &'static str,
+    },
+}
 
 // Format an iterator of u8 into a hex string
 fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>) -> fmt::Result {
