@@ -6,9 +6,9 @@ fn compile_time_assert_sync<T: Sync>() {}
 
 #[test]
 fn test_server_name_traits() {
-    compile_time_assert_hash::<ServerName>();
-    compile_time_assert_send::<ServerName>();
-    compile_time_assert_sync::<ServerName>();
+    compile_time_assert_hash::<ServerName<'_>>();
+    compile_time_assert_send::<ServerName<'_>>();
+    compile_time_assert_sync::<ServerName<'_>>();
 
     let a = ServerName::try_from(&b"example.com"[..]).unwrap();
 

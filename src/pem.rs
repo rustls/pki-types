@@ -57,7 +57,7 @@ pub trait PemObject: Sized {
 
     /// Decode the first section of this type from PEM read from an [`io::Read`].
     #[cfg(feature = "std")]
-    fn from_pem_reader(rd: impl std::io::Read) -> Result<Self, Error> {
+    fn from_pem_reader(rd: impl io::Read) -> Result<Self, Error> {
         Self::pem_reader_iter(rd)
             .next()
             .unwrap_or(Err(Error::NoItemsFound))
@@ -65,7 +65,7 @@ pub trait PemObject: Sized {
 
     /// Iterate over all sections of this type from PEM present in an [`io::Read`].
     #[cfg(feature = "std")]
-    fn pem_reader_iter<R: std::io::Read>(rd: R) -> ReadIter<io::BufReader<R>, Self> {
+    fn pem_reader_iter<R: io::Read>(rd: R) -> ReadIter<io::BufReader<R>, Self> {
         ReadIter::new(io::BufReader::new(rd))
     }
 

@@ -61,8 +61,7 @@
 //! in the browser.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![warn(unreachable_pub, clippy::use_self)]
-#![deny(missing_docs)]
+#![warn(missing_docs, clippy::use_self)]
 #![cfg_attr(rustls_pki_types_docsrs, feature(doc_cfg))]
 
 #[cfg(feature = "alloc")]
