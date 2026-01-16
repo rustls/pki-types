@@ -532,6 +532,8 @@ const fn u8_broadcast16(x: u16) -> u8 {
 
 #[cfg(all(test, feature = "alloc"))]
 mod tests {
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]
@@ -725,7 +727,7 @@ mod tests {
     }
 
     #[track_caller]
-    fn decode(input: &[u8]) -> alloc::vec::Vec<u8> {
+    fn decode(input: &[u8]) -> Vec<u8> {
         let length = decoded_length(input.len());
 
         let mut v = alloc::vec![0u8; length];

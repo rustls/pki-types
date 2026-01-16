@@ -79,7 +79,7 @@ impl ServerName<'_> {
 }
 
 impl fmt::Debug for ServerName<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DnsName(d) => f.debug_tuple("DnsName").field(&d.as_ref()).finish(),
             Self::IpAddress(i) => f.debug_tuple("IpAddress").field(i).finish(),
@@ -305,7 +305,7 @@ impl fmt::Debug for DnsNameInner<'_> {
 pub struct InvalidDnsNameError;
 
 impl fmt::Display for InvalidDnsNameError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("invalid dns name")
     }
 }
@@ -776,8 +776,8 @@ use parser::{AddrKind, Parser};
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct AddrParseError(AddrKind);
 
-impl core::fmt::Display for AddrParseError {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+impl fmt::Display for AddrParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self.0 {
             AddrKind::Ipv4 => "invalid IPv4 address syntax",
             AddrKind::Ipv6 => "invalid IPv6 address syntax",
@@ -900,7 +900,7 @@ mod tests {
         #[cfg(feature = "std")]
         {
             use std::collections::HashSet;
-            let mut h = HashSet::<DnsName>::new();
+            let mut h = HashSet::<DnsName<'_>>::new();
             h.insert(example);
         }
     }
