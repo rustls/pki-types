@@ -61,7 +61,12 @@
 //! in the browser.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![warn(missing_docs, clippy::use_self)]
+#![warn(
+    missing_docs,
+    clippy::exhaustive_enums,
+    clippy::exhaustive_structs,
+    clippy::use_self
+)]
 #![cfg_attr(rustls_pki_types_docsrs, feature(doc_cfg))]
 
 #[cfg(feature = "alloc")]
@@ -501,6 +506,7 @@ impl fmt::Debug for PrivatePkcs8KeyDer<'_> {
 /// The most common way to get one of these is to call [`rustls_webpki::anchor_from_trusted_cert()`].
 ///
 /// [`rustls_webpki::anchor_from_trusted_cert()`]: https://docs.rs/rustls-webpki/latest/webpki/fn.anchor_from_trusted_cert.html
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TrustAnchor<'a> {
     /// Value of the `subject` field of the trust anchor
@@ -929,6 +935,7 @@ pub trait SignatureVerificationAlgorithm: Send + Sync + fmt::Debug {
 }
 
 /// A detail-less error when a signature is not valid.
+#[allow(clippy::exhaustive_structs)]
 #[derive(Debug, Copy, Clone)]
 pub struct InvalidSignature;
 

@@ -301,6 +301,7 @@ impl fmt::Debug for DnsNameInner<'_> {
 
 /// The provided input could not be parsed because
 /// it is not a syntactically-valid DNS Name.
+#[allow(clippy::exhaustive_structs)]
 #[derive(Debug)]
 pub struct InvalidDnsNameError;
 
@@ -382,6 +383,7 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
 /// Note: because we intend to replace this type with `core::net::IpAddr` as soon as it is
 /// stabilized, the identity of this type should not be considered semver-stable. However, the
 /// attached interfaces are stable; they form a subset of those provided by `core::net::IpAddr`.
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum IpAddr {
     /// An Ipv4 address.
