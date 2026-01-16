@@ -96,6 +96,8 @@ pub struct ReadIter<R, T> {
     _ty: PhantomData<T>,
     line: Vec<u8>,
     b64_buf: Vec<u8>,
+    /// Used to fuse the iterator on I/O errors
+    done: bool,
 }
 
 #[cfg(feature = "std")]
@@ -107,6 +109,7 @@ impl<R: io::BufRead, T: PemObject> ReadIter<R, T> {
             _ty: PhantomData,
             line: Vec::with_capacity(80),
             b64_buf: Vec::with_capacity(1024),
+            done: false,
         }
     }
 }
@@ -116,6 +119,10 @@ impl<R: io::BufRead, T: PemObject> Iterator for ReadIter<R, T> {
     type Item = Result<T, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
         loop {
             self.b64_buf.clear();
             return match from_buf_inner(&mut self.rd, &mut self.line, &mut self.b64_buf) {
@@ -124,6 +131,10 @@ impl<R: io::BufRead, T: PemObject> Iterator for ReadIter<R, T> {
                     None => continue,
                 },
                 Ok(None) => return None,
+                Err(Error::Io(error)) => {
+                    self.done = true;
+                    Some(Err(Error::Io(error)))
+                }
                 Err(err) => Some(Err(err)),
             };
         }

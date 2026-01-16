@@ -1,6 +1,6 @@
 #![cfg(feature = "std")]
 
-use std::io::Cursor;
+use std::io::{self, Cursor, Read};
 
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{
@@ -331,4 +331,24 @@ fn slice_iterator() {
     );
     assert_eq!(iter.remainder(), b"goodbye\n");
     assert!(iter.next().is_none());
+}
+
+#[test]
+fn fuse_io_error() {
+    let mut iter = CertificateDer::pem_reader_iter(ErrorReader);
+    match iter.next() {
+        Some(Err(pem::Error::Io(_))) => {}
+        other => panic!("unexpected: {:?}", other),
+    }
+
+    assert!(iter.next().is_none());
+    assert!(iter.next().is_none());
+}
+
+struct ErrorReader;
+
+impl Read for ErrorReader {
+    fn read(&mut self, _buf: &mut [u8]) -> Result<usize, io::Error> {
+        Err(io::Error::new(io::ErrorKind::Other, "read error"))
+    }
 }
