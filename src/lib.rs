@@ -1,8 +1,7 @@
 //! This crate provides types for representing X.509 certificates, keys and other types as
 //! commonly used in the rustls ecosystem. It is intended to be used by crates that need to work
 //! with such X.509 types, such as [rustls](https://crates.io/crates/rustls),
-//! [rustls-webpki](https://crates.io/crates/rustls-webpki),
-//! [rustls-pemfile](https://crates.io/crates/rustls-pemfile), and others.
+//! [rustls-webpki](https://crates.io/crates/rustls-webpki), and others.
 //!
 //! Some of these crates used to define their own trivial wrappers around DER-encoded bytes.
 //! However, in order to avoid inconvenient dependency edges, these were all disconnected. By
