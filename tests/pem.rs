@@ -352,3 +352,44 @@ impl Read for ErrorReader {
         Err(io::Error::new(io::ErrorKind::Other, "read error"))
     }
 }
+
+/// Reproduction for <https://github.com/rustls/pki-types/issues/105>.
+///
+/// We should stop reading if a PEM section is too long.
+#[test]
+fn section_too_large() {
+    let reader = UnboundedReader {
+        header: b"-----BEGIN CERTIFICATE-----\n",
+        read: 0,
+    };
+
+    let mut buf_reader = io::BufReader::new(reader);
+    let result = pem::from_buf(&mut buf_reader);
+    assert!(matches!(result, Err(pem::Error::SectionTooLarge)));
+    let reader = buf_reader.into_inner();
+    assert!(reader.read < 68_000_000, "{}", reader.read);
+}
+
+struct UnboundedReader {
+    header: &'static [u8],
+    read: usize,
+}
+
+impl Read for UnboundedReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if !self.header.is_empty() {
+            let n = self.header.len().min(buf.len());
+            buf[..n].copy_from_slice(&self.header[..n]);
+            self.header = &self.header[n..];
+            self.read += n;
+            return Ok(n);
+        }
+
+        // Emit a base64-like line (76 chars + newline, standard PEM width)
+        let line = b"QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB\n";
+        let n = line.len().min(buf.len());
+        buf[..n].copy_from_slice(&line[..n]);
+        self.read += n;
+        Ok(n)
+    }
+}

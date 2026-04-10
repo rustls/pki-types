@@ -331,10 +331,15 @@ fn read(
 
     if section.is_some() {
         b64buf.extend(line);
+        if b64buf.len() > MAX_PEM_SECTION_SIZE {
+            return Err(Error::SectionTooLarge);
+        }
     }
 
     Ok(ControlFlow::Continue(()))
 }
+
+const MAX_PEM_SECTION_SIZE: usize = 64 * 1024 * 1024;
 
 enum SectionLabel {
     Known(SectionKind),
@@ -493,6 +498,9 @@ pub enum Error {
 
     /// No items found of desired type
     NoItemsFound,
+
+    /// PEM section exceeds maximum allowed size of 64 MB
+    SectionTooLarge,
 }
 
 impl fmt::Display for Error {
@@ -508,6 +516,7 @@ impl fmt::Display for Error {
             #[cfg(feature = "std")]
             Self::Io(e) => write!(f, "I/O error: {e}"),
             Self::NoItemsFound => write!(f, "no items found"),
+            Self::SectionTooLarge => write!(f, "PEM section exceeds maximum allowed size of 10 MB"),
         }
     }
 }
