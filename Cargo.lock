@@ -91,7 +91,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.14.0"
+version = "1.14.1"
 dependencies = [
  "crabgrind",
  "web-time",
