@@ -367,7 +367,7 @@ fn section_too_large() {
     let result = pem::from_buf(&mut buf_reader);
     assert!(matches!(result, Err(pem::Error::SectionTooLarge)));
     let reader = buf_reader.into_inner();
-    assert!(reader.read < 68_000_000, "{}", reader.read);
+    assert!(reader.read < ((256 + 1) * 1024 * 1024), "{}", reader.read);
 }
 
 struct UnboundedReader {

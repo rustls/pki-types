@@ -339,7 +339,9 @@ fn read(
     Ok(ControlFlow::Continue(()))
 }
 
-const MAX_PEM_SECTION_SIZE: usize = 64 * 1024 * 1024;
+// We've seen CRLs of 100MB (DER) / ~135MB (PEM) in the wild.
+// 256MB seems like an OK upper bound.
+const MAX_PEM_SECTION_SIZE: usize = 256 * 1024 * 1024;
 
 enum SectionLabel {
     Known(SectionKind),
@@ -499,7 +501,7 @@ pub enum Error {
     /// No items found of desired type
     NoItemsFound,
 
-    /// PEM section exceeds maximum allowed size of 64 MB
+    /// PEM section exceeds maximum allowed size of 256 MB
     SectionTooLarge,
 }
 
