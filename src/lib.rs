@@ -1097,6 +1097,16 @@ pub enum FipsStatus {
     },
 }
 
+impl FipsStatus {
+    /// Construct a [`FipsStatus::Certified`].
+    ///
+    /// The argument should be a name, number or URL referencing the FIPS certificate.
+    /// This is for human presentation purposes, it is not for automated use.
+    pub const fn certified(certificate: &'static str) -> Self {
+        Self::Certified { certificate }
+    }
+}
+
 // Format an iterator of u8 into a hex string
 fn hex<'a>(f: &mut fmt::Formatter<'_>, payload: impl IntoIterator<Item = &'a u8>) -> fmt::Result {
     for (i, b) in payload.into_iter().enumerate() {
@@ -1122,6 +1132,12 @@ mod tests {
     fn alg_id_debug() {
         let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
         assert_eq!(format!("{alg_id:?}"), "0x010203");
+    }
+
+    #[test]
+    fn fips_status_debug() {
+        let fips = FipsStatus::certified("hello");
+        assert_eq!(format!("{fips:?}"), "Certified { certificate: \"hello\" }");
     }
 
     #[test]
