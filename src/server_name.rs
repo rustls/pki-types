@@ -346,6 +346,13 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
         };
 
         match ch {
+            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => state = LabelState::HasLetter,
+            Some(b'0'..=b'9') => {
+                state = match state {
+                    LabelState::Start | LabelState::AllNumeric => LabelState::AllNumeric,
+                    LabelState::HasLetter | LabelState::EndsInHyphen => LabelState::HasLetter,
+                }
+            }
             Some(b'.') | None => {
                 let len = idx - start;
                 if len == 0 || len > MAX_LABEL_LENGTH || matches!(state, LabelState::EndsInHyphen) {
@@ -363,20 +370,11 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
                 state = LabelState::Start;
                 continue;
             }
-            Some(ch) => match ch {
-                b'0'..=b'9' => {
-                    state = match state {
-                        LabelState::Start | LabelState::AllNumeric => LabelState::AllNumeric,
-                        LabelState::HasLetter | LabelState::EndsInHyphen => LabelState::HasLetter,
-                    }
-                }
-                b'a'..=b'z' | b'A'..=b'Z' | b'_' => state = LabelState::HasLetter,
-                b'-' => match idx == start {
-                    true => return Err(InvalidDnsNameError),
-                    false => state = LabelState::EndsInHyphen,
-                },
-                _ => return Err(InvalidDnsNameError),
+            Some(b'-') => match idx == start {
+                true => return Err(InvalidDnsNameError),
+                false => state = LabelState::EndsInHyphen,
             },
+            _ => return Err(InvalidDnsNameError),
         }
 
         idx += 1;
