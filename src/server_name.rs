@@ -315,17 +315,16 @@ impl fmt::Display for InvalidDnsNameError {
 impl StdError for InvalidDnsNameError {}
 
 const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
-    enum State {
+    enum LabelState {
+        /// The current label is still empty
         Start,
-        Next,
-        NumericOnly { len: usize },
-        NextAfterNumericOnly,
-        Subsequent { len: usize },
-        Hyphen { len: usize },
+        /// The current label contains at least one non-digit
+        HasLetter,
+        /// The current label is non-empty and all-numeric so far
+        AllNumeric,
+        /// The last character was a hyphen
+        EndsInHyphen,
     }
-
-    use State::*;
-    let mut state = Start;
 
     /// "Labels must be 63 characters or less."
     const MAX_LABEL_LENGTH: usize = 63;
@@ -333,49 +332,62 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     /// https://devblogs.microsoft.com/oldnewthing/20120412-00/?p=7873
     const MAX_NAME_LENGTH: usize = 253;
 
-    if input.len() > MAX_NAME_LENGTH {
+    if input.is_empty() || input.len() > MAX_NAME_LENGTH {
         return Err(InvalidDnsNameError);
     }
 
+    let mut start = 0;
+    let mut state = LabelState::Start;
     let mut idx = 0;
-    while idx < input.len() {
-        let ch = input[idx];
-        state = match (state, ch) {
-            (Start | Next | NextAfterNumericOnly | Hyphen { .. }, b'.') => {
-                return Err(InvalidDnsNameError);
-            }
-            (Subsequent { .. }, b'.') => Next,
-            (NumericOnly { .. }, b'.') => NextAfterNumericOnly,
-            (Subsequent { len } | NumericOnly { len } | Hyphen { len }, _)
-                if len >= MAX_LABEL_LENGTH =>
-            {
-                return Err(InvalidDnsNameError);
-            }
-            (Start | Next | NextAfterNumericOnly, b'0'..=b'9') => NumericOnly { len: 1 },
-            (NumericOnly { len }, b'0'..=b'9') => NumericOnly { len: len + 1 },
-            (Start | Next | NextAfterNumericOnly, b'a'..=b'z' | b'A'..=b'Z' | b'_') => {
-                Subsequent { len: 1 }
-            }
-            (Subsequent { len } | NumericOnly { len } | Hyphen { len }, b'-') => {
-                Hyphen { len: len + 1 }
-            }
-            (
-                Subsequent { len } | NumericOnly { len } | Hyphen { len },
-                b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'0'..=b'9',
-            ) => Subsequent { len: len + 1 },
-            _ => return Err(InvalidDnsNameError),
+    loop {
+        let ch = match idx < input.len() {
+            true => Some(input[idx]),
+            false => None,
         };
+
+        match ch {
+            Some(b'.') | None => {
+                let len = idx - start;
+                if len == 0 || len > MAX_LABEL_LENGTH || matches!(state, LabelState::EndsInHyphen) {
+                    return Err(InvalidDnsNameError);
+                }
+
+                // Break on a trailing dot as well as on the end of input, keeping
+                // `state` intact for the final all-numeric check below.
+                if idx + 1 >= input.len() {
+                    break;
+                }
+
+                idx += 1;
+                start = idx;
+                state = LabelState::Start;
+                continue;
+            }
+            Some(ch) => match ch {
+                b'0'..=b'9' => {
+                    state = match state {
+                        LabelState::Start | LabelState::AllNumeric => LabelState::AllNumeric,
+                        LabelState::HasLetter | LabelState::EndsInHyphen => LabelState::HasLetter,
+                    }
+                }
+                b'a'..=b'z' | b'A'..=b'Z' | b'_' => state = LabelState::HasLetter,
+                b'-' => match idx == start {
+                    true => return Err(InvalidDnsNameError),
+                    false => state = LabelState::EndsInHyphen,
+                },
+                _ => return Err(InvalidDnsNameError),
+            },
+        }
+
         idx += 1;
     }
 
-    if matches!(
-        state,
-        Start | Hyphen { .. } | NumericOnly { .. } | NextAfterNumericOnly
-    ) {
-        return Err(InvalidDnsNameError);
+    // The final label (whether or not the name has a trailing dot) must
+    // not be all-numeric, to avoid confusion with an IPv4 address.
+    match state {
+        LabelState::AllNumeric => Err(InvalidDnsNameError),
+        _ => Ok(()),
     }
-
-    Ok(())
 }
 
 /// `no_std` implementation of `std::net::IpAddr`.
