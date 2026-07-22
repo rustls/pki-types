@@ -20,11 +20,18 @@ web = ["web-time"]
 [dependencies]
 zeroize = { version = "1", optional = true }
 
+[dev-dependencies]
+criterion = "0.8"
+
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dev-dependencies]
 crabgrind = "=0.1.9" # compatible with valgrind package on GHA ubuntu-latest
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 web-time = { version = "1", optional = true }
+
+[[bench]]
+name = "dns_name"
+harness = false
 
 [lints.rust]
 elided_lifetimes_in_paths = "warn"
