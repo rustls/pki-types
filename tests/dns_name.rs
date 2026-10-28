@@ -1,4 +1,4 @@
-use rustls_pki_types::DnsName;
+use rustls_pki_types::{DnsName, InvalidDnsNameError};
 
 // (name, is_valid)
 static DNS_NAME_VALIDITY: &[(&[u8], bool)] = &[
@@ -423,4 +423,66 @@ fn dns_name_ref_try_from_ascii_test() {
             "DnsNameRef::try_from_ascii_str failed for \"{s:?}\""
         );
     }
+}
+
+#[test]
+fn dns_name_trailing_dot_is_stripped() {
+    for (input, expected) in [
+        ("example.com.", "example.com"),
+        ("example.com", "example.com"),
+        ("Example.COM.", "Example.COM"),
+        ("a.", "a"),
+        ("a", "a"),
+    ] {
+        assert_eq!(DnsName::try_from(input).unwrap().as_ref(), expected);
+        assert_eq!(
+            DnsName::try_from(input.as_bytes()).unwrap().as_ref(),
+            expected
+        );
+        #[cfg(feature = "alloc")]
+        assert_eq!(
+            DnsName::try_from(input.to_string()).unwrap().as_ref(),
+            expected
+        );
+    }
+
+    const TRAILING_DOT: Result<DnsName<'static>, InvalidDnsNameError> =
+        DnsName::try_from_str("example.com.");
+    const NO_TRAILING_DOT: Result<DnsName<'static>, InvalidDnsNameError> =
+        DnsName::try_from_str("example.com");
+
+    assert_eq!(TRAILING_DOT.unwrap(), NO_TRAILING_DOT.unwrap());
+
+    // Never more than one
+    for input in ["a..", "example.com..", "."] {
+        assert!(DnsName::try_from(input).is_err(), "{input:?}");
+    }
+
+    // The result never has a trailing dot, and reparses to itself
+    for &(s, is_valid) in DNS_NAME_VALIDITY {
+        if !is_valid {
+            continue;
+        }
+
+        let name = DnsName::try_from(s).unwrap();
+        assert!(!name.as_ref().ends_with('.'), "{s:?}");
+        assert_eq!(
+            DnsName::try_from(name.as_ref()).unwrap().as_ref(),
+            name.as_ref()
+        );
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn dns_name_trailing_dot_is_stripped_owned() {
+    // Owned: modified in place (test for efficiency not correctness)
+    let input = String::from("Example.COM.");
+    let ptr = input.as_ptr();
+    let name = DnsName::try_from(input).unwrap();
+    assert_eq!(name.as_ref(), "Example.COM");
+    assert_eq!(name.as_ref().as_ptr(), ptr);
+
+    let name = DnsName::try_from(String::from("example.com")).unwrap();
+    assert_eq!(name.as_ref(), "example.com");
 }

@@ -62,5 +62,55 @@ fn test_alloc_server_name_traits() {
 fn test_ipv4_confusables_are_neither_dns_name_nor_ip_address() {
     for name in ["0x7f000001", "0xC0.0x00.0x02.0xEB", "example.0x1"] {
         assert!(ServerName::try_from(name).is_err(), "{name}");
+        assert!(ServerName::try_from(name.as_bytes()).is_err(), "{name}");
+        #[cfg(feature = "alloc")]
+        assert!(ServerName::try_from(name.to_string()).is_err(), "{name}");
+    }
+}
+
+#[test]
+fn test_server_name_trailing_dot_is_stripped() {
+    for input in ["example.com.", "example.com"] {
+        let names = [
+            ServerName::try_from(input).unwrap(),
+            ServerName::try_from(input.as_bytes()).unwrap(),
+        ];
+        for name in names {
+            match name {
+                ServerName::DnsName(dns) => assert_eq!(dns.as_ref(), "example.com"),
+                other => panic!("{other:?}"),
+            }
+        }
+    }
+
+    for input in ["example.com..", "."] {
+        assert!(ServerName::try_from(input).is_err(), "{input}");
+        assert!(ServerName::try_from(input.as_bytes()).is_err(), "{input}");
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn test_server_name_from_string() {
+    for input in ["example.com.", "example.com"] {
+        match ServerName::try_from(input.to_string()).unwrap() {
+            ServerName::DnsName(dns) => assert_eq!(dns.as_ref(), "example.com"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    for input in ["127.0.0.1", "::1"] {
+        assert_eq!(
+            ServerName::try_from(input.to_string()).unwrap(),
+            ServerName::try_from(input).unwrap(),
+        );
+        assert!(matches!(
+            ServerName::try_from(input.to_string()).unwrap(),
+            ServerName::IpAddress(_)
+        ));
+    }
+
+    for input in ["example.com..", ".", ""] {
+        assert!(ServerName::try_from(input.to_string()).is_err(), "{input}");
     }
 }
