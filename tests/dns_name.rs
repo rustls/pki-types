@@ -149,6 +149,25 @@ static DNS_NAME_VALIDITY: &[(&[u8], bool)] = &[
     (b"1.2.a", true),
     (b"1.2.3.a", true),
 
+    // last label can't be a hex number
+    (b"0x", false),
+    (b"0X", false),
+    (b"0x.", false),
+    (b"0X1F", false),
+    (b"a.0xa", false),
+    (b"a.0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", false),
+    (b"a.0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", false), // too long anyway
+
+    // other labels can be hex numbers
+    (b"0x.a", true),
+    (b"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.a", true),
+
+    // last label can be *partly* a hex number
+    (b"a.0a", true),
+    (b"a.0_", true),
+    (b"a.0-1", true),
+    (b"a.0x_", true),
+
     // last label can be *partly* numeric
     (b"1a", true),
     (b"1.1a", true),
@@ -290,12 +309,12 @@ static IP_ADDRESS_DNS_VALIDITY: &[(&[u8], bool)] = &[
     // Other common forms of IPv4 address
     // http://en.wikipedia.org/wiki/IPv4#Address_representations
     (b"192.0.2.235", false),         // dotted decimal (control value)
-    (b"0xC0.0x00.0x02.0xEB", true),  // dotted hex - actually a DNS name!
+    (b"0xC0.0x00.0x02.0xEB", false), // dotted hex
     (b"0301.0000.0002.0353", false), // dotted octal
-    (b"0xC00002EB", true),           // non-dotted hex, actually a DNS name!
+    (b"0xC00002EB", false),          // non-dotted hex
     (b"3221226219", false),          // non-dotted decimal
     (b"030000001353", false),        // non-dotted octal
-    (b"192.0.0002.0xEB", true),      // mixed, actually a DNS name!
+    (b"192.0.0002.0xEB", false),     // mixed
     (b"1234", false),
     (b"1234:5678", false),
     (b"1234:5678:9abc", false),
