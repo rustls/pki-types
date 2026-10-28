@@ -21,7 +21,7 @@ fn test_server_name_traits() {
     #[cfg(feature = "alloc")]
     {
         // `Debug`.
-        assert_eq!(format!("{:?}", &a), "DnsName(\"example.com\")");
+        assert_eq!(format!("{:?}", a), "DnsName(\"example.com\")");
     }
 }
 
@@ -35,7 +35,7 @@ fn test_alloc_server_name_traits() {
     assert_eq!(&a, &a.clone());
 
     // `Debug`.
-    assert_eq!(format!("{:?}", &a), "DnsName(\"example.com\")");
+    assert_eq!(format!("{:?}", a), "DnsName(\"example.com\")");
 
     // PartialEq is case-insensitive
     assert_eq!(
