@@ -181,6 +181,8 @@ impl<'a> From<DnsName<'a>> for ServerName<'a> {
 /// is "without a trailing dot", so `as_ref()` always gives a name suitable for
 /// that. Callers who must treat absolute names differently need to inspect
 /// the input before parsing.
+///
+/// Equality and hashing ignore ASCII case: `example.com` and `Example.COM` are equal.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DnsName<'a>(DnsNameInner<'a>);
 

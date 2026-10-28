@@ -1,3 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use rustls_pki_types::{DnsName, InvalidDnsNameError};
 
 // (name, is_valid)
@@ -485,4 +488,24 @@ fn dns_name_trailing_dot_is_stripped_owned() {
 
     let name = DnsName::try_from(String::from("example.com")).unwrap();
     assert_eq!(name.as_ref(), "example.com");
+}
+
+#[test]
+fn dns_name_eq_and_hash() {
+    fn hash(name: &DnsName<'_>) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    // Equality and hashing ignore ASCII case
+    let lower = DnsName::try_from("example.com").unwrap();
+    let mixed = DnsName::try_from("Example.COM").unwrap();
+    assert_eq!(lower, mixed);
+    assert_eq!(hash(&lower), hash(&mixed));
+
+    // ... and a trailing dot, as it is removed during parsing
+    let absolute = DnsName::try_from("Example.com.").unwrap();
+    assert_eq!(lower, absolute);
+    assert_eq!(hash(&lower), hash(&absolute));
 }
