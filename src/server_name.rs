@@ -213,6 +213,29 @@ impl<'a> DnsName<'a> {
         }))
     }
 
+    /// Remove the trailing dot (if any) from this `DnsName`.
+    ///
+    /// [RFC 6066 section 3](https://www.rfc-editor.org/info/rfc6066#section-3)
+    /// specifies that the name sent in the TLS Server Name Indication extension
+    /// is "without a trailing dot".
+    ///
+    /// This never allocates: a borrowed `DnsName` is shortened, and an owned
+    /// `DnsName` is modified in place.
+    pub fn without_trailing_dot(self) -> Self {
+        match self {
+            Self(DnsNameInner::Borrowed(s)) => {
+                Self(DnsNameInner::Borrowed(s.strip_suffix('.').unwrap_or(s)))
+            }
+            #[cfg(feature = "alloc")]
+            Self(DnsNameInner::Owned(mut s)) => {
+                if s.ends_with('.') {
+                    s.pop();
+                }
+                Self(DnsNameInner::Owned(s))
+            }
+        }
+    }
+
     #[cfg(feature = "alloc")]
     fn try_from_string(s: String) -> Result<Self, String> {
         match validate(s.as_bytes()) {

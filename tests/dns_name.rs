@@ -424,3 +424,43 @@ fn dns_name_ref_try_from_ascii_test() {
         );
     }
 }
+
+#[test]
+fn dns_name_without_trailing_dot() {
+    for (input, expected) in [
+        ("example.com.", "example.com"),
+        ("example.com", "example.com"),
+        ("Example.COM.", "Example.COM"),
+        ("a.", "a"),
+        ("a", "a"),
+    ] {
+        let name = DnsName::try_from(input).unwrap();
+        assert_eq!(name.without_trailing_dot().as_ref(), expected);
+    }
+
+    // The result is always valid
+    for &(s, is_valid) in DNS_NAME_VALIDITY {
+        if !is_valid {
+            continue;
+        }
+
+        let name = DnsName::try_from(s).unwrap();
+        let trimmed = name.without_trailing_dot();
+        assert!(!trimmed.as_ref().ends_with('.'), "{s:?}");
+        assert!(DnsName::try_from(trimmed.as_ref()).is_ok(), "{s:?}");
+    }
+}
+
+#[cfg(feature = "alloc")]
+#[test]
+fn dns_name_without_trailing_dot_owned() {
+    // Owned: modified in place
+    let input = String::from("Example.COM.");
+    let ptr = input.as_ptr();
+    let name = DnsName::try_from(input).unwrap().without_trailing_dot();
+    assert_eq!(name.as_ref(), "Example.COM");
+    assert_eq!(name.as_ref().as_ptr(), ptr);
+
+    let name = DnsName::try_from(String::from("example.com")).unwrap();
+    assert_eq!(name.without_trailing_dot().as_ref(), "example.com");
+}
