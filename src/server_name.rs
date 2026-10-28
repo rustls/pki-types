@@ -173,6 +173,14 @@ impl<'a> From<DnsName<'a>> for ServerName<'a> {
 }
 
 /// A type which encapsulates a string (borrowed or owned) that is a syntactically valid DNS name.
+///
+/// A single trailing dot is accepted when parsing, but is removed: `example.com.`
+/// parses to a `DnsName` that is identical to one parsed from `example.com`.
+/// [RFC 6066 section 3](https://www.rfc-editor.org/info/rfc6066#section-3)
+/// specifies that the name sent in the TLS Server Name Indication extension
+/// is "without a trailing dot", so `as_ref()` always gives a name suitable for
+/// that. Callers who must treat absolute names differently need to inspect
+/// the input before parsing.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DnsName<'a>(DnsNameInner<'a>);
 
@@ -214,9 +222,14 @@ impl<'a> DnsName<'a> {
     }
 
     #[cfg(feature = "alloc")]
-    fn try_from_string(s: String) -> Result<Self, String> {
+    fn try_from_string(mut s: String) -> Result<Self, String> {
         match validate(s.as_bytes()) {
-            Ok(_) => Ok(Self(DnsNameInner::Owned(s))),
+            Ok(_) => {
+                if s.ends_with('.') {
+                    s.pop();
+                }
+                Ok(Self(DnsNameInner::Owned(s)))
+            }
             Err(_) => Err(s),
         }
     }
@@ -224,7 +237,7 @@ impl<'a> DnsName<'a> {
     /// Produces a borrowed [`DnsName`] from a borrowed [`str`].
     pub const fn try_from_str(s: &str) -> Result<DnsName<'_>, InvalidDnsNameError> {
         match validate(s.as_bytes()) {
-            Ok(_) => Ok(DnsName(DnsNameInner::Borrowed(s))),
+            Ok(_) => Ok(DnsName(DnsNameInner::Borrowed(strip_trailing_dot(s)))),
             Err(err) => Err(err),
         }
     }
@@ -252,7 +265,8 @@ impl<'a> TryFrom<&'a [u8]> for DnsName<'a> {
 
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         validate(value)?;
-        Ok(Self(DnsNameInner::Borrowed(str::from_utf8(value).unwrap())))
+        let s = str::from_utf8(value).unwrap();
+        Ok(Self(DnsNameInner::Borrowed(strip_trailing_dot(s))))
     }
 }
 
@@ -417,6 +431,17 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
             Err(InvalidDnsNameError)
         }
         _ => Ok(()),
+    }
+}
+
+/// Remove one trailing dot from `s`, if present.
+///
+/// `validate()` rejects empty labels, so a validated name has at most one.
+const fn strip_trailing_dot(s: &str) -> &str {
+    match s.as_bytes() {
+        // SAFETY: `rest` is `s` minus a final ASCII byte, so is still valid UTF-8.
+        [rest @ .., b'.'] => unsafe { str::from_utf8_unchecked(rest) },
+        _ => s,
     }
 }
 
