@@ -193,13 +193,23 @@ impl<'a> DnsName<'a> {
         DnsName(DnsNameInner::Owned(self.as_ref().to_ascii_lowercase()))
     }
 
-    /// Produce an owned `DnsName` from this (potentially borrowed) `DnsName`.
+    /// Copy an owned `DnsName` from this (potentially borrowed) `DnsName`.
     #[cfg(feature = "alloc")]
     pub fn to_owned(&self) -> DnsName<'static> {
         DnsName(DnsNameInner::Owned(match self {
             Self(DnsNameInner::Borrowed(s)) => s.to_string(),
             #[cfg(feature = "alloc")]
             Self(DnsNameInner::Owned(s)) => s.clone(),
+        }))
+    }
+
+    /// Produce an owned `DnsName` from this (potentially borrowed) `DnsName`.
+    #[cfg(feature = "alloc")]
+    pub fn into_owned(self) -> DnsName<'static> {
+        DnsName(DnsNameInner::Owned(match self {
+            Self(DnsNameInner::Borrowed(s)) => s.to_string(),
+            #[cfg(feature = "alloc")]
+            Self(DnsNameInner::Owned(s)) => s,
         }))
     }
 
