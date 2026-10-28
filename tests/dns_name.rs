@@ -445,3 +445,31 @@ fn dns_name_without_trailing_dot_owned() {
     let name = DnsName::try_from(String::from("example.com")).unwrap();
     assert_eq!(name.without_trailing_dot().as_ref(), "example.com");
 }
+
+#[test]
+fn dns_name_eq_and_hash() {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    fn hash(name: &DnsName<'_>) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    // Equality and hashing ignore ASCII case
+    let lower = DnsName::try_from("example.com").unwrap();
+    let mixed = DnsName::try_from("Example.COM").unwrap();
+    assert_eq!(lower, mixed);
+    assert_eq!(hash(&lower), hash(&mixed));
+
+    // ... but not a trailing dot
+    let absolute = DnsName::try_from("example.com.").unwrap();
+    assert_ne!(lower, absolute);
+    assert_ne!(hash(&lower), hash(&absolute));
+
+    // ... unless it is removed
+    let absolute = absolute.without_trailing_dot();
+    assert_eq!(lower, absolute);
+    assert_eq!(hash(&lower), hash(&absolute));
+}

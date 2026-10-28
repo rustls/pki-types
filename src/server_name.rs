@@ -173,6 +173,11 @@ impl<'a> From<DnsName<'a>> for ServerName<'a> {
 }
 
 /// A type which encapsulates a string (borrowed or owned) that is a syntactically valid DNS name.
+///
+/// Equality and hashing ignore ASCII case, but not a trailing dot: `example.com`
+/// and `Example.COM` are equal, while `example.com.` and `example.com` are not.
+/// Use [`DnsName::without_trailing_dot()`] to compare names regardless of a
+/// trailing dot.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DnsName<'a>(DnsNameInner<'a>);
 
