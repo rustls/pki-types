@@ -173,6 +173,11 @@ impl<'a> From<DnsName<'a>> for ServerName<'a> {
 }
 
 /// A type which encapsulates a string (borrowed or owned) that is a syntactically valid DNS name.
+///
+/// Equality and hashing ignore ASCII case, but not a trailing dot: `example.com`
+/// and `Example.COM` are equal, while `example.com.` and `example.com` are not.
+/// Use [`DnsName::without_trailing_dot()`] to compare names regardless of a
+/// trailing dot.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DnsName<'a>(DnsNameInner<'a>);
 
@@ -211,6 +216,29 @@ impl<'a> DnsName<'a> {
             #[cfg(feature = "alloc")]
             Self(DnsNameInner::Owned(s)) => s,
         }))
+    }
+
+    /// Remove the trailing dot (if any) from this `DnsName`.
+    ///
+    /// [RFC 6066 section 3](https://www.rfc-editor.org/info/rfc6066#section-3)
+    /// specifies that the name sent in the TLS Server Name Indication extension
+    /// is "without a trailing dot".
+    ///
+    /// This never allocates: a borrowed `DnsName` is shortened, and an owned
+    /// `DnsName` is modified in place.
+    pub fn without_trailing_dot(self) -> Self {
+        match self {
+            Self(DnsNameInner::Borrowed(s)) => {
+                Self(DnsNameInner::Borrowed(s.strip_suffix('.').unwrap_or(s)))
+            }
+            #[cfg(feature = "alloc")]
+            Self(DnsNameInner::Owned(mut s)) => {
+                if s.ends_with('.') {
+                    s.pop();
+                }
+                Self(DnsNameInner::Owned(s))
+            }
+        }
     }
 
     #[cfg(feature = "alloc")]
@@ -328,10 +356,15 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     enum LabelState {
         /// The current label is still empty
         Start,
-        /// The current label contains at least one non-digit
+        /// The current label is known not to be a decimal or hex number
         HasLetter,
-        /// The current label is non-empty and all-numeric so far
+        /// The current label is all-numeric so far, with at least two digits
+        /// or a first digit other than "0"
         AllNumeric,
+        /// The current label is exactly "0" so far
+        Zero,
+        /// The current label is "0x" or "0X", followed by zero or more hex digits
+        HexNumber,
         /// The last character was a hyphen
         EndsInHyphen,
     }
@@ -356,10 +389,20 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
         };
 
         match ch {
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => state = LabelState::HasLetter,
-            Some(b'0'..=b'9') => {
+            Some(c @ (b'a'..=b'z' | b'A'..=b'Z' | b'_')) => {
+                state = match (state, c) {
+                    (LabelState::Zero, b'x' | b'X') => LabelState::HexNumber,
+                    (LabelState::HexNumber, b'a'..=b'f' | b'A'..=b'F') => LabelState::HexNumber,
+                    _ => LabelState::HasLetter,
+                }
+            }
+            Some(c @ b'0'..=b'9') => {
                 state = match state {
-                    LabelState::Start | LabelState::AllNumeric => LabelState::AllNumeric,
+                    LabelState::Start if c == b'0' => LabelState::Zero,
+                    LabelState::Start | LabelState::AllNumeric | LabelState::Zero => {
+                        LabelState::AllNumeric
+                    }
+                    LabelState::HexNumber => LabelState::HexNumber,
                     LabelState::HasLetter | LabelState::EndsInHyphen => LabelState::HasLetter,
                 }
             }
@@ -370,7 +413,7 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
                 }
 
                 // Break on a trailing dot as well as on the end of input, keeping
-                // `state` intact for the final all-numeric check below.
+                // `state` intact for the final numeric check below.
                 if idx + 1 >= input.len() {
                     break;
                 }
@@ -391,9 +434,15 @@ const fn validate(input: &[u8]) -> Result<(), InvalidDnsNameError> {
     }
 
     // The final label (whether or not the name has a trailing dot) must
-    // not be all-numeric, to avoid confusion with an IPv4 address.
+    // not be all-numeric or a hex number, to avoid confusion with an IPv4
+    // address. This follows the "ends in a number" rule of the WHATWG URL
+    // standard <https://url.spec.whatwg.org/#ends-in-a-number-checker>, and
+    // the rule RFC 9849 section 6.1.7 gives for ECH public names
+    // <https://www.rfc-editor.org/info/rfc9849#section-6.1.7-7>.
     match state {
-        LabelState::AllNumeric => Err(InvalidDnsNameError),
+        LabelState::AllNumeric | LabelState::Zero | LabelState::HexNumber => {
+            Err(InvalidDnsNameError)
+        }
         _ => Ok(()),
     }
 }
@@ -870,6 +919,25 @@ mod tests {
         ("123.numeric-only-first-label", true),
         ("a123b.com", true),
         ("numeric-only-middle-label.4.com", true),
+        ("0", false),
+        ("example.0", false),
+        ("example.00", false),
+        ("0x7f000001", false),
+        ("example.0x7f000001", false),
+        ("example.0X1f", false),
+        ("example.0xABCdef", false),
+        ("example.0x", false),
+        ("example.0x.", false),
+        ("example.0x1f.", false),
+        ("0x1f.example", true),
+        ("0xg.example", true),
+        ("example.0xg", true),
+        ("example.0x1g", true),
+        ("example.0xx", true),
+        ("example.0x-1", true),
+        ("example.00x1", true),
+        ("example.1x1", true),
+        ("example.x1", true),
         ("1000-sans.badssl.com", true),
         (
             "twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfiftythreecharacters.twohundredandfi",

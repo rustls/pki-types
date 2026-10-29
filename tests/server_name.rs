@@ -57,3 +57,10 @@ fn test_alloc_server_name_traits() {
         ServerName::try_from(&b"example.co"[..]).unwrap().to_owned()
     );
 }
+
+#[test]
+fn test_ipv4_confusables_are_neither_dns_name_nor_ip_address() {
+    for name in ["0x7f000001", "0xC0.0x00.0x02.0xEB", "example.0x1"] {
+        assert!(ServerName::try_from(name).is_err(), "{name}");
+    }
+}
