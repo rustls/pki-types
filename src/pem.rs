@@ -518,7 +518,9 @@ impl fmt::Display for Error {
             #[cfg(feature = "std")]
             Self::Io(e) => write!(f, "I/O error: {e}"),
             Self::NoItemsFound => write!(f, "no items found"),
-            Self::SectionTooLarge => write!(f, "PEM section exceeds maximum allowed size of 10 MB"),
+            Self::SectionTooLarge => {
+                write!(f, "PEM section exceeds maximum allowed size of 256 MB")
+            }
         }
     }
 }

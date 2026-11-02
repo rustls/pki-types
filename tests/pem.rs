@@ -393,3 +393,13 @@ impl Read for UnboundedReader {
         Ok(n)
     }
 }
+
+/// The SectionTooLarge message should state the actual limit (256MB),
+/// rather than the 10MB limit it was originally written for.
+#[test]
+fn section_too_large_display() {
+    assert_eq!(
+        pem::Error::SectionTooLarge.to_string(),
+        "PEM section exceeds maximum allowed size of 256 MB"
+    );
+}
