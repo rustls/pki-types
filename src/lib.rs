@@ -946,11 +946,15 @@ pub trait SignatureVerificationAlgorithm: Send + Sync + fmt::Debug {
 #[derive(Debug, Copy, Clone)]
 pub struct InvalidSignature;
 
-/// A timestamp, tracking the number of non-leap seconds since the Unix epoch.
+/// A timestamp, tracking the time since the Unix epoch, without leap seconds.
 ///
 /// The Unix epoch is defined January 1, 1970 00:00:00 UTC.
+///
+/// A `UnixTime` keeps the precision it is given: [`UnixTime::now()`] is as
+/// precise as the system clock, and two times within the same second are
+/// different times. [`UnixTime::as_secs()`] gives the whole seconds.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UnixTime(u64);
+pub struct UnixTime(Duration);
 
 impl UnixTime {
     /// The current time, as a `UnixTime`
@@ -971,13 +975,18 @@ impl UnixTime {
 
     /// Convert a `Duration` since the start of 1970 to a `UnixTime`
     ///
-    /// The `duration` must be relative to the Unix epoch.
+    /// The `duration` must be relative to the Unix epoch. It is stored unchanged.
     pub const fn since_unix_epoch(duration: Duration) -> Self {
-        Self(duration.as_secs())
+        Self(duration)
     }
 
-    /// Number of seconds since the Unix epoch
+    /// Number of whole seconds since the Unix epoch
     pub const fn as_secs(&self) -> u64 {
+        self.0.as_secs()
+    }
+
+    /// The time since the Unix epoch, as precisely as it was given
+    pub const fn to_duration(self) -> Duration {
         self.0
     }
 }
@@ -1132,6 +1141,25 @@ mod tests {
     fn alg_id_debug() {
         let alg_id = AlgorithmIdentifier::from_slice(&[0x01, 0x02, 0x03]);
         assert_eq!(format!("{alg_id:?}"), "0x010203");
+    }
+
+    #[test]
+    fn unix_time_keeps_its_precision() {
+        let t = UnixTime::since_unix_epoch(Duration::from_millis(10_900));
+        assert_eq!(t.as_secs(), 10);
+        assert_eq!(t.to_duration(), Duration::from_millis(10_900));
+
+        // Within the same second, still two different times, in order
+        let earlier = UnixTime::since_unix_epoch(Duration::from_millis(10_100));
+        assert!(earlier < t);
+        assert_ne!(earlier, t);
+        assert_eq!(earlier.as_secs(), t.as_secs());
+
+        // The age between them, which whole seconds could not state
+        assert_eq!(
+            t.to_duration() - earlier.to_duration(),
+            Duration::from_millis(800)
+        );
     }
 
     #[test]
